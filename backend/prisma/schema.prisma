@@ -1,0 +1,408 @@
+// ReCarbo Prisma Schema
+// Project: ReCarbo — Carbon Capture-to-Product Matchmaking Platform
+// Team: The Outliers (Smit Bhalani, Chaitya Vakani, Dhruvi Raval, Diya Joshi)
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// 1. ENUMS
+// ==========================================
+
+enum UserRole {
+  SUPPLIER
+  BUYER
+  ADMIN
+}
+
+enum ListingStatus {
+  ACTIVE
+  PENDING_REVIEW
+  PAUSED
+  SOLD_OUT
+  EXPIRED
+}
+
+enum TransactionMode {
+  FIXED_PRICE
+  REQUEST_QUOTE
+}
+
+enum RequirementStatus {
+  OPEN
+  MATCHED
+  FULFILLED
+  CANCELLED
+}
+
+enum QuoteRequestStatus {
+  OPEN
+  EVALUATING
+  ALLOCATED
+  CLOSED
+}
+
+enum AllocationPolicy {
+  FCFS
+  HIGHEST_PRICE
+  BEST_VALUE
+}
+
+enum QuoteStatus {
+  PENDING
+  ACCEPTED
+  PARTIALLY_ACCEPTED
+  REJECTED
+}
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  ESCROW_HELD
+  RELEASED
+  REFUNDED
+}
+
+enum NotificationType {
+  MATCH_FOUND
+  QUOTE_RECEIVED
+  QUOTE_ACCEPTED
+  ORDER_PLACED
+  ORDER_STATUS_CHANGED
+  SYSTEM_ALERT
+  VERIFICATION_UPDATE
+}
+
+// ==========================================
+// 2. CORE AUTH & IDENTITY MODELS (Smit)
+// ==========================================
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  password     String
+  name         String
+  role         UserRole     @default(BUYER)
+  companyId    String?
+  company      Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  
+  notifications Notification[]
+  calculations  Calculation[]
+  auditLogs     AuditLog[]
+  platformFeesUpdated PlatformFee[]
+  
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+model Company {
+  id              String           @id @default(uuid())
+  name            String
+  industry        String           // e.g., Cement, Chemicals, Agriculture, Beverage, Energy
+  description     String?
+  address         String?
+  city            String?          // e.g., Surat, Bharuch, Ahmedabad, Vadodara, Hazira
+  state           String?          @default("Gujarat")
+  pincode         String?
+  country         String           @default("India")
+  latitude        Float?
+  longitude       Float?
+  website         String?
+  contactEmail    String?
+  contactPhone    String?
+  isVerified      Boolean          @default(false)
+  trustScore      Float            @default(80.0) // 0 - 100 trust and reliability score
+  verificationDocs String?         // JSON string or link to certificates
+
+  users           User[]
+  listings        CO2Listing[]
+  requirements    CO2Requirement[]
+  quotesSubmitted Quote[]
+  ordersAsBuyer   Order[]          @relation("BuyerCompanyOrders")
+  ordersAsSupplier Order[]         @relation("SupplierCompanyOrders")
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([city])
+  @@index([industry])
+  @@index([isVerified])
+}
+
+// ==========================================
+// 3. MARKETPLACE & LISTINGS MODELS (Chaitya)
+// Note for Chaitya: Extend parameters for physical specs if needed
+// ==========================================
+
+model CO2Listing {
+  id                  String          @id @default(uuid())
+  supplierCompanyId   String
+  supplierCompany     Company         @relation(fields: [supplierCompanyId], references: [id], onDelete: Cascade)
+  title               String
+  description         String?
+  
+  // Stored strictly in KG internally (1 tonne = 1000 kg)
+  quantityAvailableKg Float
+  minOrderKg          Float           @default(1000)
+  purityPercentage    Float           // e.g., 99.5%
+  captureMethod       String          // e.g., Direct Air Capture (DAC), Post-combustion, Fermentation
+  stateOfMatter       String          // Compressed Gas, Liquid, Solid (Dry Ice)
+  pressureBar         Float?
+  temperatureC        Float?
+  pricePerKg          Float           // In INR ₹/kg
+  
+  isSplitAllowed      Boolean         @default(true)
+  transactionMode     TransactionMode @default(FIXED_PRICE)
+  status              ListingStatus   @default(ACTIVE)
+  expiryDate          DateTime?
+
+  // Relations
+  matches             Match[]
+  quoteRequests       QuoteRequest[]
+  orders              Order[]
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([supplierCompanyId])
+  @@index([status])
+  @@index([transactionMode])
+}
+
+model CO2Requirement {
+  id                  String            @id @default(uuid())
+  buyerCompanyId      String
+  buyerCompany        Company           @relation(fields: [buyerCompanyId], references: [id], onDelete: Cascade)
+  title               String
+  description         String?
+  
+  // Stored strictly in KG internally
+  quantityRequiredKg  Float
+  minPurityPercentage Float             // e.g., 98.0%
+  maxPricePerKg       Float?            // Max budget in INR ₹/kg
+  targetDeliveryDate  DateTime?
+  preferredState      String?           // Compressed Gas, Liquid, Solid
+  status              RequirementStatus @default(OPEN)
+
+  // Relations
+  matches             Match[]
+  quoteRequests       QuoteRequest[]
+
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([buyerCompanyId])
+  @@index([status])
+}
+
+// ==========================================
+// 4. MATCHING & RFQ ALLOCATION ENGINE (Chaitya)
+// ==========================================
+
+model Match {
+  id                String         @id @default(uuid())
+  listingId         String
+  listing           CO2Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  requirementId     String
+  requirement       CO2Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  
+  // Deterministic 5-factor scoring (0-100)
+  // 30% Quantity + 25% Purity + 20% Distance + 15% Price + 10% Availability
+  overallScore      Float
+  quantityScore     Float
+  purityScore       Float
+  distanceScore     Float
+  priceScore        Float
+  availabilityScore Float
+  explanation       String?        // Deterministic or LLM-generated plain language explanation
+  status            String         @default("ACTIVE") // ACTIVE, REJECTED, ACCEPTED
+
+  createdAt         DateTime       @default(now())
+
+  @@unique([listingId, requirementId])
+  @@index([overallScore])
+}
+
+model QuoteRequest {
+  id               String             @id @default(uuid())
+  listingId        String
+  listing          CO2Listing         @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  requirementId    String?
+  requirement      CO2Requirement?    @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  status           QuoteRequestStatus @default(OPEN)
+  deadline         DateTime
+  allocationPolicy AllocationPolicy   @default(BEST_VALUE)
+
+  quotes           Quote[]
+  allocations      Allocation[]
+
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([listingId])
+  @@index([status])
+}
+
+model Quote {
+  id                String       @id @default(uuid())
+  quoteRequestId    String
+  quoteRequest      QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+  buyerCompanyId    String
+  buyerCompany      Company      @relation(fields: [buyerCompanyId], references: [id], onDelete: Cascade)
+  offeredQuantityKg Float
+  offeredPricePerKg Float        // INR ₹/kg
+  status            QuoteStatus  @default(PENDING)
+
+  allocations       Allocation[]
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([quoteRequestId])
+  @@index([buyerCompanyId])
+}
+
+model Allocation {
+  id                  String       @id @default(uuid())
+  quoteRequestId      String
+  quoteRequest        QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+  quoteId             String
+  quote               Quote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  allocatedQuantityKg Float
+  agreedPricePerKg    Float
+  allocationStatus    String       @default("CONFIRMED") // CONFIRMED, REVERTED
+
+  createdAt           DateTime     @default(now())
+
+  @@index([quoteRequestId])
+  @@index([quoteId])
+}
+
+// ==========================================
+// 5. ORDERS & FULFILLMENT (Dhruvi)
+// ==========================================
+
+model Order {
+  id                String        @id @default(uuid())
+  orderNumber       String        @unique // e.g., RC-2025-00124
+  listingId         String?
+  listing           CO2Listing?   @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  buyerCompanyId    String
+  buyerCompany      Company       @relation("BuyerCompanyOrders", fields: [buyerCompanyId], references: [id], onDelete: Cascade)
+  supplierCompanyId String
+  supplierCompany   Company       @relation("SupplierCompanyOrders", fields: [supplierCompanyId], references: [id], onDelete: Cascade)
+  
+  quantityKg        Float
+  unitPricePerKg    Float
+  
+  // Mandatory Server-Recalculated Financials
+  totalCo2Cost      Float
+  transportCost     Float
+  handlingCost      Float
+  platformFee       Float
+  totalAmount       Float
+  
+  status            OrderStatus   @default(DRAFT)
+  paymentStatus     PaymentStatus @default(PENDING)
+  deliveryAddress   String?
+  trackingNumber    String?
+  estimatedDelivery DateTime?
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([orderNumber])
+  @@index([buyerCompanyId])
+  @@index([supplierCompanyId])
+  @@index([status])
+}
+
+// ==========================================
+// 6. ADMIN & CONFIGURATION (Diya & Smit)
+// ==========================================
+
+model PlatformFee {
+  id                  String    @id @default(uuid())
+  feePercentage       Float     @default(2.5) // 2.5%
+  transportRatePerKmKg Float    @default(0.015) // INR per km per kg
+  effectiveFrom       DateTime  @default(now())
+  effectiveTo         DateTime?
+  updatedByUserId     String?
+  updatedByUser       User?     @relation(fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt           DateTime  @default(now())
+}
+
+// ==========================================
+// 7. CALCULATIONS & LOGISTICS PREVIEWS (Chaitya)
+// ==========================================
+
+model Calculation {
+  id                    String    @id @default(uuid())
+  userId                String?
+  user                  User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  quantityKg            Float
+  distanceKm            Float
+  purityPercentage      Float
+  transportMethod       String    // Road Tanker, Pipeline, Cryogenic Cylinder
+  estimatedCo2Cost      Float
+  estimatedTransportCost Float
+  estimatedHandlingFee  Float
+  estimatedPlatformFee  Float
+  estimatedTotal        Float
+  calculatedAt          DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ==========================================
+// 8. NOTIFICATIONS & AUDIT LOGS (Dhruvi & All)
+// ==========================================
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      NotificationType @default(SYSTEM_ALERT)
+  isRead    Boolean          @default(false)
+  linkUrl   String?
+
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   // e.g. "AUTH_LOGIN", "LISTING_CREATED", "FEE_UPDATED"
+  entityType String   // e.g. "User", "CO2Listing", "Order", "Company"
+  entityId   String?
+  details    String?  // JSON string or summary
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+}
