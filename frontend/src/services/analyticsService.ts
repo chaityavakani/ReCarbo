@@ -1,5 +1,5 @@
 import api from './api';
-import { SupplierAnalytics, BuyerAnalytics } from '../types';
+import { SupplierAnalytics, BuyerAnalytics, SustainabilityMetricsData } from '../types';
 
 export const analyticsService = {
   getSupplierAnalytics: async (): Promise<SupplierAnalytics> => {
@@ -11,4 +11,10 @@ export const analyticsService = {
     const res = await api.get('/analytics/buyer');
     return res.data.analytics;
   },
+
+  getSustainabilityMetrics: async (): Promise<SustainabilityMetricsData> => {
+    const res = await api.get('/analytics/sustainability');
+    return res.data.metrics;
+  },
 };
+

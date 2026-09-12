@@ -27,6 +27,7 @@ import { LogisticsPage } from './pages/logistics/LogisticsPage';
 import { AssistantPage } from './pages/assistant/AssistantPage';
 import { NotificationsPage } from './pages/notifications/NotificationsPage';
 import { CompanyProfilePage } from './pages/profile/CompanyProfilePage';
+import { SustainabilityPage } from './pages/sustainability/SustainabilityPage';
 
 // Admin Pages
 import { AdminOverviewPage } from './pages/admin/AdminOverviewPage';
@@ -57,6 +58,7 @@ export function App() {
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/logistics" element={<LogisticsPage />} />
                 <Route path="/assistant" element={<AssistantPage />} />
+                <Route path="/sustainability" element={<SustainabilityPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/profile" element={<CompanyProfilePage />} />
 

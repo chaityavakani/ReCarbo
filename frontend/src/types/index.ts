@@ -56,6 +56,7 @@ export interface User {
   role: UserRole;
   companyId?: string | null;
   company?: Company | null;
+  isSuspended?: boolean;
   createdAt: string;
   unreadNotificationsCount?: number;
 }
@@ -306,6 +307,151 @@ export interface PlatformSettings {
   id: string;
   feePercentage: number;
   transportRatePerKmKg: number;
+  minQuoteIncrement?: number;
+  defaultRfqHours?: number;
+  requireDocsForVerify?: boolean;
   effectiveFrom: string;
   effectiveTo?: string | null;
 }
+
+export interface AdminOverviewKPIs {
+  totalUsers: number;
+  supplierUsersCount: number;
+  buyerUsersCount: number;
+  totalCompanies: number;
+  totalListings: number;
+  activeListingsCount: number;
+  totalRequirements: number;
+  activeRfqsCount: number;
+  totalOrdersCount: number;
+  completedOrdersCount: number;
+  inTransitOrdersCount: number;
+  activeVolumeKg: number;
+  activeVolumeTonnes: number;
+  totalVolumeSoldTonnes: number;
+  totalVolumeDeliveredTonnes: number;
+  totalVolumeUtilizedTonnes: number;
+  platformRevenue: number;
+  grossMerchandiseValue: number;
+  avgCo2PricePerKg: number;
+  platformFeePercentage: number;
+  transportRate: number;
+}
+
+export interface CarbonFlowStage {
+  stage: string;
+  tonnes: number;
+  color: string;
+}
+
+export interface AdminOverviewData {
+  kpis: AdminOverviewKPIs;
+  carbonFlow: CarbonFlowStage[];
+  monthlyTrends: Array<{
+    month: string;
+    volumeTonnes: number;
+    revenue: number;
+    gmv: number;
+    orders: number;
+  }>;
+  userGrowth: Array<{
+    month: string;
+    suppliers: number;
+    buyers: number;
+    total: number;
+  }>;
+  priceByState: Array<{
+    state: string;
+    avgPrice: number;
+    purityAvg: number;
+    count: number;
+  }>;
+}
+
+export interface SustainabilityMetricsData {
+  totalCapturedTonnes: number;
+  totalListedTonnes: number;
+  totalMatchedTonnes: number;
+  totalTransportedTonnes: number;
+  totalUtilizedTonnes: number;
+  totalTransactions: number;
+  totalCostSavings: number;
+  virginBenchmarkRate: number;
+  carbonFlowSteps: Array<{
+    id: string;
+    stage: string;
+    tonnes: number;
+    kg: number;
+    description: string;
+    color: string;
+  }>;
+  sectors: Array<{
+    name: string;
+    percent: number;
+    tonnes: number;
+    mechanism: string;
+    color: string;
+  }>;
+  regionalHubs: Array<{
+    hub: string;
+    type: string;
+    volumeTonnes: number;
+    captureMethod: string;
+    purity: string;
+  }>;
+  monthlyCumulative: Array<{
+    month: string;
+    routedTonnes: number;
+    transactions: number;
+    costSavingsINR: number;
+  }>;
+  complianceStatement: string;
+}
+
+export interface AssistantStructuredMatch {
+  listingId: string;
+  title: string;
+  supplierName: string;
+  supplierCity: string;
+  purityPercentage: number;
+  quantityAvailableTonnes: number;
+  pricePerKg: number;
+  stateOfMatter: string;
+  captureMethod: string;
+  distanceKm: number;
+  landedCostEstimate: number;
+  landedCostPerKg: number;
+  overallScore: number;
+  scores: {
+    quantity: number;
+    purity: number;
+    distance: number;
+    price: number;
+    availability: number;
+  };
+}
+
+export interface AssistantChatResponse {
+  reply: string;
+  actionType: 'MATCH_RECOMMENDATION' | 'SUPPLIER_COMPARISON' | 'UTILIZATION_ADVICE' | 'GENERAL_QA';
+  structuredData?: {
+    matches?: AssistantStructuredMatch[];
+    comparison?: any;
+    filtersParsed?: any;
+    utilizationTip?: any;
+  };
+}
+
+export interface AuditLog {
+  id: string;
+  userId?: string | null;
+  user?: { id: string; name: string; email: string; role: string } | null;
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  details?: string | null;
+  ipAddress?: string | null;
+  createdAt: string;
+}
+
+

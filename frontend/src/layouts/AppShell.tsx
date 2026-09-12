@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from '../components/Sidebar';
 import { Topbar } from '../components/Topbar';
 import { ToastContainer } from '../components/ToastContainer';
+import { FloatingAssistant } from '../components/FloatingAssistant';
 
 export const AppShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -29,6 +30,9 @@ export const AppShell: React.FC = () => {
 
         {/* Global Real-time Toast Notifications */}
         <ToastContainer />
+
+        {/* Persistent Floating AI Assistant Entry Point */}
+        <FloatingAssistant />
       </div>
     </div>
   );

@@ -111,6 +111,8 @@ model User {
   auditLogs     AuditLog[]
   platformFeesUpdated PlatformFee[]
   
+  isSuspended  Boolean      @default(false)
+  
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -353,6 +355,9 @@ model PlatformFee {
   id                  String    @id @default(uuid())
   feePercentage       Float     @default(2.5) // 2.5%
   transportRatePerKmKg Float    @default(0.015) // INR per km per kg
+  minQuoteIncrement   Float     @default(0.10) // Min quote increment in INR/kg
+  defaultRfqHours     Int       @default(48) // Default RFQ bidding window in hours
+  requireDocsForVerify Boolean  @default(true) // Enforce document check for verification
   effectiveFrom       DateTime  @default(now())
   effectiveTo         DateTime?
   updatedByUserId     String?

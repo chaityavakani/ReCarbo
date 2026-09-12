@@ -39,6 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { label: 'Logistics Fleet', to: '/logistics', icon: Truck },
     { label: 'Cost Estimator', to: '/calculator', icon: Calculator },
     { label: 'AI Matchmaker', to: '/assistant', icon: Bot },
+    { label: 'Sustainability & Flow', to: '/sustainability', icon: Leaf },
     { label: 'Notifications', to: '/notifications', icon: Bell },
     { label: 'Company Profile', to: '/profile', icon: Building2 },
   ];
@@ -52,6 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { label: 'Transit & Logistics', to: '/logistics', icon: Truck },
     { label: 'Cost Estimator', to: '/calculator', icon: Calculator },
     { label: 'AI Matchmaker', to: '/assistant', icon: Bot },
+    { label: 'Sustainability & Flow', to: '/sustainability', icon: Leaf },
     { label: 'Notifications', to: '/notifications', icon: Bell },
     { label: 'Company Profile', to: '/profile', icon: Building2 },
   ];
@@ -63,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { label: 'Verify Companies', to: '/admin/companies', icon: ShieldCheck },
     { label: 'Fee & Transport Rates', to: '/admin/settings', icon: Sliders },
     { label: 'Audit Trail Logs', to: '/admin/audit-logs', icon: History },
+    { label: 'Sustainability & Flow', to: '/sustainability', icon: Leaf },
     { label: 'Logistics Map', to: '/logistics', icon: Truck },
     { label: 'AI Platform Ops', to: '/assistant', icon: Bot },
     { label: 'System Alerts', to: '/notifications', icon: Bell },

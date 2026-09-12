@@ -35,6 +35,9 @@ export const SOCKET_EVENTS = {
   // Notifications & Alerts
   NOTIFICATION_NEW: 'notification:new',
   ALERT_BROADCAST: 'alert:broadcast',
+
+  // Platform Settings
+  SETTINGS_UPDATED: 'settings:updated',
 } as const;
 
 export type SocketEventType = typeof SOCKET_EVENTS[keyof typeof SOCKET_EVENTS];

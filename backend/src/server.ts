@@ -17,6 +17,7 @@ import notificationRoutes from './routes/notification-routes';
 import settingsRoutes from './routes/settings-routes';
 import adminRoutes from './routes/admin-routes';
 import analyticsRoutes from './routes/analytics-routes';
+import assistantRoutes from './routes/assistant-routes';
 
 const app = express();
 const server = http.createServer(app);
@@ -64,6 +65,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/assistant', assistantRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

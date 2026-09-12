@@ -45,4 +45,17 @@ export class AnalyticsController {
       next(error);
     }
   }
+
+  /**
+   * GET /api/analytics/sustainability
+   * Get circular carbon ecosystem metrics & carbon flow tracking
+   */
+  static async getSustainabilityMetrics(req: Request, res: Response, next: NextFunction) {
+    try {
+      const metrics = await AnalyticsService.getSustainabilityMetrics();
+      return res.status(200).json({ metrics });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

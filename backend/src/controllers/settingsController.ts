@@ -5,6 +5,9 @@ import { z } from 'zod';
 const updateSettingsSchema = z.object({
   feePercentage: z.number().min(0).max(100),
   transportRatePerKmKg: z.number().min(0),
+  minQuoteIncrement: z.number().min(0).optional(),
+  defaultRfqHours: z.number().min(1).max(720).optional(),
+  requireDocsForVerify: z.boolean().optional(),
 });
 
 export class SettingsController {
@@ -39,8 +42,7 @@ export class SettingsController {
       }
 
       const updated = await SettingsService.updatePlatformFee(
-        parsed.data.feePercentage,
-        parsed.data.transportRatePerKmKg,
+        parsed.data,
         req.user.userId
       );
 
