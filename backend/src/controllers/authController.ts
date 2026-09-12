@@ -73,17 +73,45 @@ export class AuthController {
     try {
       if (!req.user) {
         return res.status(401).json({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: 'Authentication required',
-          },
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
         });
       }
-
       const user = await AuthService.getCurrentUser(req.user.userId);
       return res.status(200).json({ user });
     } catch (error) {
       next(error);
+    }
+  }
+
+  static async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({
+          error: { code: 'MISSING_EMAIL', message: 'Email address is required' },
+        });
+      }
+      const result = await AuthService.forgotPassword(email);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { token, newPassword } = req.body;
+      if (!token || !newPassword) {
+        return res.status(400).json({
+          error: { code: 'MISSING_FIELDS', message: 'Token and new password are required' },
+        });
+      }
+      const result = await AuthService.resetPassword(token, newPassword);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return res.status(error.statusCode || 400).json({
+        error: { code: error.code || 'RESET_FAILED', message: error.message },
+      });
     }
   }
 }

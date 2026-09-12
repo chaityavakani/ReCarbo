@@ -223,6 +223,11 @@ export const LoginPage: React.FC = () => {
               placeholder="••••••••••••"
               className="w-full px-4 py-3 rounded-xl bg-charcoal-950 border border-emerald-950 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 text-base text-white placeholder:text-slate-600 transition-all"
             />
+            <div className="mt-2 text-right">
+              <Link to="/forgot-password" className="text-xs text-slate-400 hover:text-brand-400 transition-colors">
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           <button

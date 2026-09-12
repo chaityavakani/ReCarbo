@@ -172,9 +172,9 @@ async function main() {
 
   const adminUser = await prisma.user.create({
     data: {
-      email: 'admin@recarbo.demo',
-      name: 'Smit Bhalani (Platform Admin)',
-      password: demoPasswordHash,
+      email: 'ravaldr30@gmail.com',
+      name: 'Dhruvi Raval (Platform Admin)',
+      password: await bcrypt.hash('Vakani@1234', await bcrypt.genSalt(10)),
       role: UserRole.ADMIN,
       companyId: adminCompany.id,
     },
@@ -183,7 +183,7 @@ async function main() {
   console.log('👤 Demo Users created with password "password123":');
   console.log('   - supplier@recarbo.demo (SUPPLIER)');
   console.log('   - buyer@recarbo.demo (BUYER)');
-  console.log('   - admin@recarbo.demo (ADMIN)');
+  console.log('   - ravaldr30@gmail.com / Vakani@1234 (ADMIN)');
 
   // 3. Create Demo CO2 Listings (Bharuch & Hazira)
   const listing1 = await prisma.cO2Listing.create({

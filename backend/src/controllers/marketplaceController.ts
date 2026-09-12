@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { MarketplaceService, ListingFilterParams } from '../services/marketplaceService';
 import { ListingStatus, TransactionMode } from '@prisma/client';
+import { EmailService } from '../services/emailService';
+import { prisma } from '../utils/prisma';
 
 export class MarketplaceController {
   static async getListings(req: Request, res: Response, next: NextFunction) {
@@ -80,6 +82,12 @@ export class MarketplaceController {
         req.user.companyId,
         req.user.userId
       );
+
+      // Email supplier: listing published
+      const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+      if (user) {
+        EmailService.sendListingCreated(user.email, user.name, listing).catch(() => {});
+      }
 
       return res.status(201).json({ listing, message: 'CO2 supply stream published successfully' });
     } catch (error: any) {

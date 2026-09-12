@@ -3,6 +3,8 @@ import { UserRole } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { generateToken } from '../utils/jwt';
 import { createAuditLog } from './auditService';
+import { EmailService } from './emailService';
+import jwt from 'jsonwebtoken';
 
 export interface RegisterInput {
   name: string;
@@ -85,6 +87,14 @@ export class AuthService {
       ipAddress: input.ipAddress,
     });
 
+    // Send welcome email
+    EmailService.sendWelcome(
+      result.user.email,
+      result.user.name,
+      result.user.role,
+      result.company.name
+    ).catch(() => {});
+
     return {
       token,
       user: {
@@ -137,6 +147,14 @@ export class AuthService {
       ipAddress: input.ipAddress,
     });
 
+    // Send login alert email
+    EmailService.sendLoginAlert(
+      user.email,
+      user.name,
+      user.role,
+      input.ipAddress
+    ).catch(() => {});
+
     return {
       token,
       user: {
@@ -148,6 +166,82 @@ export class AuthService {
         company: user.company,
       },
     };
+  }
+
+  static async forgotPassword(email: string) {
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+    });
+
+    // Always return success to prevent email enumeration
+    if (!user) return { success: true };
+
+    // Generate a short-lived JWT as the reset token (15 min expiry)
+    const resetToken = jwt.sign(
+      { userId: user.id, purpose: 'password_reset' },
+      process.env.JWT_SECRET || 'recarbo_ultra_secure_jwt_secret_key_2025',
+      { expiresIn: '15m' }
+    );
+
+    await EmailService.sendPasswordReset(user.email, user.name, resetToken);
+
+    await createAuditLog({
+      userId: user.id,
+      action: 'PASSWORD_RESET_REQUESTED',
+      entityType: 'User',
+      entityId: user.id,
+      details: { email: user.email },
+    });
+
+    return { success: true };
+  }
+
+  static async resetPassword(token: string, newPassword: string) {
+    let payload: any;
+    try {
+      payload = jwt.verify(
+        token,
+        process.env.JWT_SECRET || 'recarbo_ultra_secure_jwt_secret_key_2025'
+      );
+    } catch {
+      const error: any = new Error('Reset link is invalid or has expired. Please request a new one.');
+      error.statusCode = 400;
+      error.code = 'INVALID_RESET_TOKEN';
+      throw error;
+    }
+
+    if (payload.purpose !== 'password_reset') {
+      const error: any = new Error('Invalid reset token');
+      error.statusCode = 400;
+      error.code = 'INVALID_RESET_TOKEN';
+      throw error;
+    }
+
+    if (newPassword.length < 6) {
+      const error: any = new Error('Password must be at least 6 characters');
+      error.statusCode = 400;
+      error.code = 'WEAK_PASSWORD';
+      throw error;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(newPassword, salt);
+
+    const user = await prisma.user.update({
+      where: { id: payload.userId },
+      data: { password: hashed },
+      include: { company: true },
+    });
+
+    await createAuditLog({
+      userId: user.id,
+      action: 'PASSWORD_RESET_COMPLETED',
+      entityType: 'User',
+      entityId: user.id,
+      details: { email: user.email },
+    });
+
+    return { success: true, message: 'Password updated successfully. You can now log in.' };
   }
 
   static async getCurrentUser(userId: string) {

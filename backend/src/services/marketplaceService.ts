@@ -3,6 +3,7 @@ import { ListingStatus, TransactionMode } from '@prisma/client';
 import { createAuditLog } from './auditService';
 import { broadcastEvent } from '../socket/socketHandler';
 import { SOCKET_EVENTS } from '../socket/events';
+import { EmailService } from './emailService';
 
 export interface ListingFilterParams {
   search?: string;
@@ -276,6 +277,12 @@ export class MarketplaceService {
     // Real-time broadcast
     broadcastEvent(SOCKET_EVENTS.LISTING_CREATED, listing);
     broadcastEvent(SOCKET_EVENTS.LISTING_OPENED, listing);
+
+    // Email supplier confirmation
+    const supplierUsers = await prisma.user.findMany({ where: { companyId: supplierCompanyId } });
+    for (const u of supplierUsers) {
+      EmailService.sendListingCreated(u.email, u.name, listing).catch(() => {});
+    }
 
     return listing;
   }

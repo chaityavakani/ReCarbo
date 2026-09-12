@@ -6,6 +6,7 @@ import { createAuditLog } from './auditService';
 import { broadcastEvent } from '../socket/socketHandler';
 import { SOCKET_EVENTS } from '../socket/events';
 import { NotificationService } from './notificationService';
+import { EmailService } from './emailService';
 
 export interface UpdateOrderStatusParams {
   orderId: string;
@@ -334,6 +335,14 @@ export class OrderService {
       });
     }
 
+    // Send status update emails to both parties
+    for (const buyerUser of order.buyerCompany.users) {
+      EmailService.sendOrderStatusUpdate(buyerUser.email, buyerUser.name, updatedOrder, newStatus, true).catch(() => {});
+    }
+    for (const supplierUser of order.supplierCompany.users) {
+      EmailService.sendOrderStatusUpdate(supplierUser.email, supplierUser.name, updatedOrder, newStatus, false).catch(() => {});
+    }
+
     // Real-Time Socket Broadcasts
     broadcastEvent(SOCKET_EVENTS.ORDER_STATUS_CHANGED, {
       orderId: updatedOrder.id,
@@ -485,6 +494,7 @@ export class OrderService {
         type: NotificationType.ORDER_PLACED,
         linkUrl: '/orders',
       });
+      EmailService.sendOrderPlacedBuyer(u.email, u.name, result.order).catch(() => {});
     }
 
     for (const u of supplierUsers) {
@@ -495,6 +505,7 @@ export class OrderService {
         type: NotificationType.ORDER_PLACED,
         linkUrl: '/orders',
       });
+      EmailService.sendNewOrderSupplier(u.email, u.name, result.order).catch(() => {});
     }
 
     return result.order;

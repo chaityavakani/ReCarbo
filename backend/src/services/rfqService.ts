@@ -13,6 +13,7 @@ import { MatchingService } from './matchingService';
 import { createAuditLog } from './auditService';
 import { broadcastEvent, emitToRoom } from '../socket/socketHandler';
 import { SOCKET_EVENTS } from '../socket/events';
+import { EmailService } from './emailService';
 
 export class RFQService {
   /**
@@ -220,6 +221,20 @@ export class RFQService {
     // Real-time broadcast
     broadcastEvent(SOCKET_EVENTS.QUOTE_SUBMITTED, quote);
     broadcastEvent(SOCKET_EVENTS.QUOTE_UPDATED, quote);
+
+    // Email supplier about new quote received
+    const supplierUsers = await prisma.user.findMany({
+      where: { companyId: rfq.listing.supplierCompany.id },
+    });
+    for (const u of supplierUsers) {
+      EmailService.sendQuoteReceived(
+        u.email, u.name,
+        quote.buyerCompany.name,
+        rfq.listing.title,
+        quote.offeredQuantityKg,
+        quote.offeredPricePerKg
+      ).catch(() => {});
+    }
 
     return quote;
   }
@@ -484,6 +499,24 @@ export class RFQService {
 
     for (const order of result.orders) {
       broadcastEvent(SOCKET_EVENTS.ORDER_CREATED, order);
+    }
+
+    // Email all winning buyers their order confirmation
+    for (const order of result.orders) {
+      const buyerUsers = await prisma.user.findMany({ where: { companyId: order.buyerCompanyId } });
+      const fullOrder = await prisma.order.findUnique({
+        where: { id: order.id },
+        include: { buyerCompany: true, supplierCompany: true, listing: true },
+      });
+      if (fullOrder) {
+        for (const u of buyerUsers) {
+          EmailService.sendOrderPlacedBuyer(u.email, u.name, fullOrder).catch(() => {});
+        }
+        const supplierUsers = await prisma.user.findMany({ where: { companyId: order.supplierCompanyId } });
+        for (const u of supplierUsers) {
+          EmailService.sendNewOrderSupplier(u.email, u.name, fullOrder).catch(() => {});
+        }
+      }
     }
 
     return result;
