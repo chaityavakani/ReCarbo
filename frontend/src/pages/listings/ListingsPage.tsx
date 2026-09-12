@@ -318,6 +318,7 @@ export const ListingsPage: React.FC = () => {
           listingTitle={rfqListing.title}
           basePricePerKg={rfqListing.pricePerKg}
           maxAvailableKg={rfqListing.quantityAvailableKg}
+          minOrderKg={rfqListing.minOrderKg}
           onClose={() => setRfqListing(null)}
           onSuccess={() => {
             setMessage(`RFQ opened for "${rfqListing.title}"!`);

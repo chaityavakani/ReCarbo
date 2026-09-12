@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { marketplaceService, ListingFilters } from '../../services/marketplaceService';
+import { orderService } from '../../services/orderService';
 import { CO2Listing, AIMatchResult } from '../../types';
 import { TrustBadge } from '../../components/TrustBadge';
 import { SkeletonTable } from '../../components/Skeleton';
@@ -11,16 +12,16 @@ import { useAuth } from '../../context/AuthContext';
 import {
   Store,
   Search,
-  Filter,
   MapPin,
   Sparkles,
   ArrowRight,
-  ShieldCheck,
-  Tag,
-  Layers,
   ArrowUpDown,
   SlidersHorizontal,
   Plus,
+  X,
+  AlertCircle,
+  CheckCircle2,
+  ShoppingCart,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -54,6 +55,32 @@ export const MarketplacePage: React.FC = () => {
     minOrderKg?: number;
     basePricePerKg?: number;
   }>({ isOpen: false, mode: 'SUBMIT_QUOTE' });
+
+  // Direct Order Modal (FIXED_PRICE listings for buyers)
+  const [directOrderModal, setDirectOrderModal] = useState<{
+    isOpen: boolean;
+    listing: CO2Listing | null;
+    quantityKg: number;
+    deliveryAddress: string;
+    isSubmitting: boolean;
+    error: string | null;
+    success: boolean;
+  }>({
+    isOpen: false,
+    listing: null,
+    quantityKg: 0,
+    deliveryAddress: '',
+    isSubmitting: false,
+    error: null,
+    success: false,
+  });
+
+  // Inline toast for non-modal feedback
+  const [toast, setToast] = useState<{ message: string; type: 'info' | 'error' } | null>(null);
+  const showToast = (message: string, type: 'info' | 'error' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4500);
+  };
 
   // Matching Drawer State
   const [matchDrawerData, setMatchDrawerData] = useState<{
@@ -103,26 +130,118 @@ export const MarketplacePage: React.FC = () => {
 
   const handleInitiateRFQFromListing = async (listing: CO2Listing) => {
     setShowDetailModal(false);
-    // Check if listing has open RFQ or create one
-    try {
-      const rfqs = await marketplaceService.getQuoteRequests(listing.id);
-      const openRfq = rfqs.find((r) => r.status === 'OPEN');
-      if (openRfq) {
-        setRfqModalData({
-          isOpen: true,
-          mode: 'SUBMIT_QUOTE',
-          quoteRequestId: openRfq.id,
-          listingTitle: listing.title,
-          maxAvailableKg: listing.quantityAvailableKg,
-          minOrderKg: listing.minOrderKg,
-          basePricePerKg: listing.pricePerKg,
-        });
-      } else {
-        // Navigate or open RFQ Creator
-        navigate(`/quote-requests?listingId=${listing.id}`);
+
+    if (!user) {
+      showToast('Please log in to procure or submit an RFQ.', 'error');
+      navigate('/login');
+      return;
+    }
+
+    // --- SUPPLIER: open CREATE_RFQ modal for their own listing ---
+    if (user.role === 'SUPPLIER') {
+      setRfqModalData({
+        isOpen: true,
+        mode: 'CREATE_RFQ',
+        listingId: listing.id,
+        listingTitle: listing.title,
+        maxAvailableKg: listing.quantityAvailableKg,
+        minOrderKg: listing.minOrderKg,
+        basePricePerKg: listing.pricePerKg,
+      });
+      return;
+    }
+
+    // --- BUYER: FIXED_PRICE listing → direct order ---
+    if (user.role === 'BUYER' && listing.transactionMode === 'FIXED_PRICE') {
+      setDirectOrderModal({
+        isOpen: true,
+        listing,
+        quantityKg: listing.minOrderKg || 1000,
+        deliveryAddress: '',
+        isSubmitting: false,
+        error: null,
+        success: false,
+      });
+      return;
+    }
+
+    // --- BUYER: REQUEST_QUOTE listing → check for open RFQ ---
+    if (user.role === 'BUYER' && listing.transactionMode === 'REQUEST_QUOTE') {
+      try {
+        const rfqs = await marketplaceService.getQuoteRequests(listing.id);
+        const openRfq = rfqs.find((r) => r.status === 'OPEN');
+        if (openRfq) {
+          setRfqModalData({
+            isOpen: true,
+            mode: 'SUBMIT_QUOTE',
+            quoteRequestId: openRfq.id,
+            listingId: listing.id,
+            listingTitle: listing.title,
+            maxAvailableKg: listing.quantityAvailableKg,
+            minOrderKg: listing.minOrderKg,
+            basePricePerKg: listing.pricePerKg,
+          });
+        } else {
+          showToast('No open RFQ round for this listing yet. The supplier has not opened bidding. You can view all RFQs in Quote Requests.', 'info');
+          setTimeout(() => navigate(`/quote-requests?listingId=${listing.id}`), 3000);
+        }
+      } catch {
+        showToast('Unable to check RFQ status. Please try again.', 'error');
       }
-    } catch (e) {
+      return;
+    }
+
+    // --- ADMIN: navigate to quote-requests page ---
+    if (user.role === 'ADMIN') {
       navigate(`/quote-requests?listingId=${listing.id}`);
+      return;
+    }
+
+    showToast('Action not available for your account role.', 'error');
+  };
+
+  const handleSubmitDirectOrder = async () => {
+    const { listing, quantityKg, deliveryAddress } = directOrderModal;
+    if (!listing) return;
+
+    if (!deliveryAddress.trim()) {
+      setDirectOrderModal((prev) => ({
+        ...prev,
+        error: 'Delivery address is required to calculate transport cost.',
+      }));
+      return;
+    }
+
+    if (quantityKg < (listing.minOrderKg || 1000)) {
+      setDirectOrderModal((prev) => ({
+        ...prev,
+        error: `Minimum order is ${(listing.minOrderKg / 1000).toFixed(1)} tonnes (${listing.minOrderKg.toLocaleString()} kg)`,
+      }));
+      return;
+    }
+    if (quantityKg > listing.quantityAvailableKg) {
+      setDirectOrderModal((prev) => ({
+        ...prev,
+        error: `Cannot exceed available supply of ${(listing.quantityAvailableKg / 1000).toFixed(1)} tonnes`,
+      }));
+      return;
+    }
+
+    setDirectOrderModal((prev) => ({ ...prev, isSubmitting: true, error: null }));
+    try {
+      await orderService.createDirectOrder({
+        listingId: listing.id,
+        quantityKg,
+        deliveryAddress: deliveryAddress || undefined,
+      });
+      setDirectOrderModal((prev) => ({ ...prev, isSubmitting: false, success: true }));
+      loadListings();
+    } catch (err: any) {
+      setDirectOrderModal((prev) => ({
+        ...prev,
+        isSubmitting: false,
+        error: err.response?.data?.error?.message || err.message || 'Failed to place order',
+      }));
     }
   };
 
@@ -401,7 +520,11 @@ export const MarketplacePage: React.FC = () => {
                       onClick={() => handleInitiateRFQFromListing(item)}
                       className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 text-charcoal-950 font-bold text-xs transition-all shadow-md shadow-brand-500/20"
                     >
-                      Procure / RFQ
+                      {user?.role === 'SUPPLIER'
+                        ? 'Open RFQ'
+                        : item.transactionMode === 'FIXED_PRICE'
+                        ? 'Procure Now'
+                        : 'Submit Bid'}
                     </button>
                   </div>
                 </div>
@@ -446,6 +569,200 @@ export const MarketplacePage: React.FC = () => {
           if (target) handleInitiateRFQFromListing(target);
         }}
       />
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3.5 rounded-2xl shadow-2xl border text-xs font-semibold flex items-center space-x-2.5 animate-in fade-in slide-in-from-bottom-4 max-w-sm text-center ${
+            toast.type === 'error'
+              ? 'bg-rose-950 border-rose-500/50 text-rose-200'
+              : 'bg-charcoal-900 border-emerald-500/40 text-emerald-200'
+          }`}
+        >
+          {toast.type === 'error' ? (
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />
+          ) : (
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-400" />
+          )}
+          <span>{toast.message}</span>
+        </div>
+      )}
+
+      {/* Direct Order Modal (FIXED_PRICE listings for buyers) */}
+      {directOrderModal.isOpen && directOrderModal.listing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg bg-charcoal-900 border border-emerald-950/90 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-emerald-950/60">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-2xl bg-brand-500/10 border border-brand-500/30 text-brand-400">
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white">Place Direct Order</h2>
+                  <p className="text-xs text-slate-400 line-clamp-1">{directOrderModal.listing.title}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDirectOrderModal((p) => ({ ...p, isOpen: false }))}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-charcoal-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {directOrderModal.success ? (
+              <div className="py-6 text-center space-y-3">
+                <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto" />
+                <p className="text-white font-bold text-sm">Order Placed Successfully!</p>
+                <p className="text-xs text-slate-400">Your order has been confirmed. Track it in the Orders section.</p>
+                <div className="flex justify-center space-x-3 pt-2">
+                  <button
+                    onClick={() => setDirectOrderModal((p) => ({ ...p, isOpen: false }))}
+                    className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300 text-xs"
+                  >
+                    Continue Browsing
+                  </button>
+                  <button
+                    onClick={() => navigate('/orders')}
+                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 text-charcoal-950 font-bold text-xs"
+                  >
+                    View My Orders
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 text-xs">
+                {/* Listing Summary */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2.5 rounded-xl bg-charcoal-950 border border-emerald-950">
+                    <span className="text-[10px] text-slate-500 block">Available</span>
+                    <span className="font-bold text-white font-mono">
+                      {(directOrderModal.listing.quantityAvailableKg / 1000).toFixed(0)} T
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-charcoal-950 border border-emerald-950">
+                    <span className="text-[10px] text-slate-500 block">Purity</span>
+                    <span className="font-bold text-emerald-400 font-mono">
+                      {directOrderModal.listing.purityPercentage}%
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-charcoal-950 border border-emerald-950">
+                    <span className="text-[10px] text-slate-500 block">Rate</span>
+                    <span className="font-bold text-brand-400 font-mono">
+                      ₹{directOrderModal.listing.pricePerKg.toFixed(2)}/kg
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quantity Slider */}
+                <div>
+                  <div className="flex justify-between text-slate-300 mb-1.5 font-semibold uppercase tracking-wider">
+                    <span>Order Quantity</span>
+                    <span className="text-emerald-400 font-mono font-bold">
+                      {(directOrderModal.quantityKg / 1000).toFixed(1)} T ({directOrderModal.quantityKg.toLocaleString()} kg)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={directOrderModal.listing.minOrderKg}
+                    max={directOrderModal.listing.quantityAvailableKg}
+                    step={Math.max(1000, Math.floor(directOrderModal.listing.quantityAvailableKg / 20))}
+                    value={directOrderModal.quantityKg}
+                    onChange={(e) =>
+                      setDirectOrderModal((p) => ({ ...p, quantityKg: Number(e.target.value), error: null }))
+                    }
+                    className="w-full accent-emerald-500 bg-charcoal-950 h-2 rounded-lg cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+                    <span>Min: {(directOrderModal.listing.minOrderKg / 1000).toFixed(1)} T</span>
+                    <span>Max: {(directOrderModal.listing.quantityAvailableKg / 1000).toFixed(1)} T</span>
+                  </div>
+                </div>
+
+                {/* Delivery Address */}
+                <div>
+                  <label className="block text-slate-300 mb-1.5 font-semibold uppercase tracking-wider">
+                    Delivery Address <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Plot 12, GIDC Sanand, Ahmedabad, Gujarat"
+                    value={directOrderModal.deliveryAddress}
+                    onChange={(e) =>
+                      setDirectOrderModal((p) => ({ ...p, deliveryAddress: e.target.value, error: null }))
+                    }
+                    className={`w-full px-4 py-2.5 rounded-xl bg-charcoal-950 border text-white placeholder:text-slate-600 focus:outline-none transition-colors ${
+                      directOrderModal.deliveryAddress.trim()
+                        ? 'border-emerald-500/50 focus:border-brand-500'
+                        : 'border-rose-500/50 focus:border-rose-400'
+                    }`}
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Required — transport & logistics cost is calculated based on this delivery address.
+                  </p>
+                </div>
+
+                {/* Order Summary */}
+                <div className="p-4 rounded-2xl bg-charcoal-950 border border-emerald-950 space-y-1.5">
+                  <div className="flex justify-between text-slate-300">
+                    <span>CO₂ Cost ({(directOrderModal.quantityKg / 1000).toFixed(1)} T × ₹{directOrderModal.listing.pricePerKg}/kg):</span>
+                    <strong className="text-white font-mono">
+                      ₹{(directOrderModal.quantityKg * directOrderModal.listing.pricePerKg).toLocaleString()}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Transport Cost:</span>
+                    <span className="font-mono text-slate-400 text-[11px]">Calculated from delivery address → supplier</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Handling + QA Audit:</span>
+                    <span className="font-mono">₹2,500</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Platform Fee (2.5%):</span>
+                    <span className="font-mono text-slate-400 text-[11px]">Applied on subtotal</span>
+                  </div>
+                  <div className="pt-1.5 border-t border-emerald-950/60 flex justify-between text-slate-300 font-semibold">
+                    <span>Total (estimated):</span>
+                    <span className="text-brand-400 font-mono font-bold">Confirmed at order creation</span>
+                  </div>
+                </div>
+
+                {directOrderModal.error && (
+                  <div className="p-3 rounded-xl bg-rose-950/80 border border-rose-500/40 text-rose-300 flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{directOrderModal.error}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-3 pt-2">
+                  <button
+                    onClick={() => setDirectOrderModal((p) => ({ ...p, isOpen: false }))}
+                    className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSubmitDirectOrder}
+                    disabled={directOrderModal.isSubmitting || !directOrderModal.deliveryAddress.trim()}
+                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 text-charcoal-950 font-bold shadow-md shadow-brand-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  >
+                    {directOrderModal.isSubmitting ? (
+                      <span>Placing Order...</span>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-3.5 h-3.5" />
+                        <span>Confirm Order</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -509,6 +509,7 @@ export const QuoteRequestsPage: React.FC = () => {
         isOpen={quoteModalData.isOpen}
         mode="SUBMIT_QUOTE"
         quoteRequestId={quoteModalData.quoteRequestId}
+        listingId={selectedRfq?.listingId}
         listingTitle={quoteModalData.listingTitle}
         maxAvailableKg={quoteModalData.maxAvailableKg}
         minOrderKg={quoteModalData.minOrderKg}

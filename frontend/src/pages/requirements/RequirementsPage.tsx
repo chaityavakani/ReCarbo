@@ -18,11 +18,12 @@ import {
   AlertCircle,
   Clock,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 export const RequirementsPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [requirements, setRequirements] = useState<CO2Requirement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +45,22 @@ export const RequirementsPage: React.FC = () => {
     targetDeliveryDate: '',
   });
 
+  // Pre-fill form from calculator URL params
+  useEffect(() => {
+    const titleParam = searchParams.get('title');
+    const quantityParam = searchParams.get('quantity');
+    if (titleParam || quantityParam) {
+      const qty = quantityParam ? Number(quantityParam) : 30;
+      setForm((prev) => ({
+        ...prev,
+        title: titleParam || prev.title,
+        quantityRequiredKg: qty * 1000,
+      }));
+      setQuantityInput(qty);
+      setShowForm(true);
+    }
+  }, []);
+
   // AI Matching Drawer State
   const [activeRequirementForMatches, setActiveRequirementForMatches] = useState<CO2Requirement | null>(null);
   const [matchResults, setMatchResults] = useState<{
@@ -55,6 +72,7 @@ export const RequirementsPage: React.FC = () => {
   // RFQ Modal State
   const [rfqModalData, setRfqModalData] = useState<{
     isOpen: boolean;
+    listingId?: string;
     quoteRequestId?: string;
     listingTitle?: string;
     maxAvailableKg?: number;
@@ -174,6 +192,7 @@ export const RequirementsPage: React.FC = () => {
       if (openRfq) {
         setRfqModalData({
           isOpen: true,
+          listingId,
           quoteRequestId: openRfq.id,
           listingTitle: openRfq.listing?.title,
           maxAvailableKg: openRfq.listing?.quantityAvailableKg,
@@ -495,6 +514,7 @@ export const RequirementsPage: React.FC = () => {
       <RFQQuoteModal
         isOpen={rfqModalData.isOpen}
         mode="SUBMIT_QUOTE"
+        listingId={rfqModalData.listingId}
         quoteRequestId={rfqModalData.quoteRequestId}
         listingTitle={rfqModalData.listingTitle}
         maxAvailableKg={rfqModalData.maxAvailableKg}

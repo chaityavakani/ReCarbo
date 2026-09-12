@@ -348,7 +348,7 @@ export const BuyerDashboard: React.FC = () => {
               Simulate Transit Cost
             </Link>
             <Link
-              to="/marketplace"
+              to="/quote-requests"
               className="text-xs font-bold text-charcoal-950 bg-gradient-to-r from-brand-500 to-brand-400 px-4 py-1.5 rounded-lg hover:from-brand-400 hover:to-brand-300 transition-all shadow-md shadow-brand-500/20"
             >
               Place RFQ Offer

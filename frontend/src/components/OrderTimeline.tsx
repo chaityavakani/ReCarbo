@@ -75,6 +75,18 @@ const STAGES: {
   },
 ];
 
+// Map statuses not in STAGES (DRAFT, CANCELLED) to their effective display index
+const STATUS_INDEX_MAP: Partial<Record<OrderStatus, number>> = {
+  DRAFT: 0,
+  PENDING: 0,
+  CONFIRMED: 1,
+  PROCESSING: 2,
+  IN_TRANSIT: 3,
+  DELIVERED: 4,
+  UTILIZED: 5,
+  CANCELLED: -1,
+};
+
 export const OrderTimeline: React.FC<OrderTimelineProps> = ({
   order,
   userRole,
@@ -91,11 +103,7 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({
 
   const isCancelled = order.status === 'CANCELLED';
 
-  const getStageIndex = (status: OrderStatus) => {
-    return STAGES.findIndex((s) => s.status === status);
-  };
-
-  const currentIndex = getStageIndex(order.status);
+  const currentIndex = STATUS_INDEX_MAP[order.status] ?? 0;
 
   const handleActionClick = (status: OrderStatus) => {
     setErrorMsg(null);
@@ -187,7 +195,7 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({
             className="h-full bg-gradient-to-r from-emerald-500 to-brand-400 rounded-full"
             initial={{ width: 0 }}
             animate={{
-              width: `${isCancelled ? 0 : Math.max(0, (currentIndex / (STAGES.length - 1)) * 100)}%`,
+              width: `${isCancelled ? 0 : (currentIndex / (STAGES.length - 1)) * 100}%`,
             }}
             transition={{ duration: 0.6, ease: 'easeInOut' }}
           />
