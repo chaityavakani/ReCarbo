@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import { assistantService } from '../../services/assistantService';
 import { AssistantChatResponse, AssistantStructuredMatch } from '../../types';
 import {
@@ -178,8 +179,13 @@ export const AssistantPage: React.FC = () => {
                 }`}
               >
                 {/* Text Content */}
-                <div className="whitespace-pre-line text-xs sm:text-sm leading-relaxed">
-                  {m.content}
+                <div className="text-xs sm:text-sm leading-relaxed prose prose-invert prose-sm max-w-none
+                  prose-p:my-1 prose-p:leading-relaxed
+                  prose-ul:my-1 prose-ul:pl-4 prose-li:my-0.5
+                  prose-strong:text-white prose-strong:font-semibold
+                  prose-headings:text-white prose-headings:font-bold prose-headings:my-1
+                  prose-code:text-brand-300 prose-code:bg-charcoal-900 prose-code:px-1 prose-code:rounded">
+                  <ReactMarkdown>{m.content}</ReactMarkdown>
                 </div>
 
                 {/* Structured Match Result Cards (if present) */}
@@ -295,7 +301,7 @@ export const AssistantPage: React.FC = () => {
                       <span className={`w-1.5 h-1.5 rounded-full ${
                         m.generatedByAI ? 'bg-brand-400' : 'bg-slate-600'
                       }`} />
-                      <span>{m.generatedByAI ? 'Mistral-7B via Hugging Face' : 'Rule-based fallback'}</span>
+                      <span>{m.generatedByAI ? 'Groq AI (compound-mini)' : 'Rule-based fallback'}</span>
                     </span>
                   )}
                 </div>

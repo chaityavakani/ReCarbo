@@ -136,6 +136,30 @@ export class AIAssistantService {
     return filters;
   }
 
+  private static isOffTopic(lower: string): boolean {
+    const offTopicPatterns = [
+      /\b(weather|temperature|rain|forecast|climate(?! credit| change policy))\b/,
+      /\b(cricket|football|soccer|sport|ipl|match|score|team)\b/,
+      /\b(movie|film|actor|actress|bollywood|netflix|series|show)\b/,
+      /\b(recipe|cook|food(?! grade)|restaurant|eat|dish)\b/,
+      /\b(stock market|share price|nifty|sensex|crypto|bitcoin|nse|bse)\b/,
+      /\b(joke|funny|meme|laugh|humor)\b/,
+      /\b(politics|election|government(?! policy)|minister|party|vote)\b/,
+      /\b(love|relationship|dating|marriage|girlfriend|boyfriend)\b/,
+      /\b(health|medicine|doctor|hospital|disease|symptom|cure)\b/,
+      /\b(travel|hotel|flight|vacation|tourism|trip(?! report))\b/,
+      /\b(who is|what is [a-z]+ [a-z]+|tell me about (?!recarbo|co2|carbon))\b/,
+    ];
+    const recarboKeywords = [
+      'co2', 'carbon', 'recarbo', 'supplier', 'listing', 'purity', 'tonne',
+      'kg', 'price', 'compare', 'match', 'utiliz', 'concrete', 'polymer',
+      'greenhouse', 'saf', 'aviation', 'platform', 'order', 'buyer', 'gujarat',
+    ];
+    const hasRecarboContext = recarboKeywords.some((k) => lower.includes(k));
+    if (hasRecarboContext) return false;
+    return offTopicPatterns.some((p) => p.test(lower));
+  }
+
   static async handleChatQuery(
     message: string,
     history: any[] = [],
@@ -143,6 +167,20 @@ export class AIAssistantService {
   ): Promise<AssistantChatResponse> {
     const trimmed = message.trim();
     const lower = trimmed.toLowerCase();
+
+    if (this.isOffTopic(lower)) {
+      return {
+        reply:
+          "I'm ReCarbo AI, specialized in CO2 sourcing and carbon marketplace queries. I can help you with:\n\n" +
+          "• 🔍 **Finding CO2 suppliers** — e.g. \"I need 50T CO2 >99% in Surat\"\n" +
+          "• ⚖️ **Comparing suppliers** — e.g. \"Compare supplier A vs B\"\n" +
+          "• 🏭 **CO2 utilization advice** — e.g. \"How to use CO2 for concrete?\"\n" +
+          "• ℹ️ **Platform info** — e.g. \"What is ReCarbo?\"\n\n" +
+          "Please ask something related to CO2 sourcing or the ReCarbo platform.",
+        actionType: 'GENERAL_QA',
+        generatedByAI: false,
+      };
+    }
 
     if (
       lower.includes('compare') ||
