@@ -434,6 +434,7 @@ export interface AssistantStructuredMatch {
 export interface AssistantChatResponse {
   reply: string;
   actionType: 'MATCH_RECOMMENDATION' | 'SUPPLIER_COMPARISON' | 'UTILIZATION_ADVICE' | 'GENERAL_QA';
+  generatedByAI?: boolean;
   structuredData?: {
     matches?: AssistantStructuredMatch[];
     comparison?: any;

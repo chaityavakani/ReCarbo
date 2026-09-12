@@ -27,6 +27,7 @@ interface ChatMessage {
   content: string;
   actionType?: string;
   structuredData?: any;
+  generatedByAI?: boolean;
   timestamp: string;
 }
 
@@ -85,6 +86,7 @@ export const AssistantPage: React.FC = () => {
         content: response.reply,
         actionType: response.actionType,
         structuredData: response.structuredData,
+        generatedByAI: response.generatedByAI,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -287,7 +289,14 @@ export const AssistantPage: React.FC = () => {
                 <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
                   <span>{m.timestamp}</span>
                   {m.role === 'assistant' && (
-                    <span className="text-emerald-400/80 font-medium">ReCarbo Verified Engine</span>
+                    <span className={`flex items-center space-x-1 font-semibold ${
+                      m.generatedByAI ? 'text-brand-400' : 'text-slate-500'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        m.generatedByAI ? 'bg-brand-400' : 'bg-slate-600'
+                      }`} />
+                      <span>{m.generatedByAI ? 'Mistral-7B via Hugging Face' : 'Rule-based fallback'}</span>
+                    </span>
                   )}
                 </div>
               </div>
