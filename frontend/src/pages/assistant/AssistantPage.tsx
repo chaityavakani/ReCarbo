@@ -37,8 +37,20 @@ export const AssistantPage: React.FC = () => {
     {
       id: 'msg-init',
       role: 'assistant',
-      content:
-        'Hello! I am ReCarbo AI, grounded directly in the live Gujarat circular carbon marketplace. Ask me to find matching CO2 streams (e.g. "I need 50 tonnes of CO2 at least 99% purity near Ahmedabad"), perform side-by-side supplier comparisons, or explore industrial utilization standards.',
+      content: `## 👋 Welcome to ReCarbo AI
+
+I'm your **Grounded Live Engine** — connected directly to the Gujarat circular carbon marketplace in real time.
+
+Here's what I can do for you:
+
+- 🔍 **Find CO2 suppliers** — e.g. *"I need 50T CO2 ≥99% purity near Ahmedabad"*
+- ⚖️ **Compare suppliers side-by-side** — e.g. *"Compare Gujarat Carbon Capture vs Hazira Green"*
+- 🏭 **CO2 utilization advice** — e.g. *"What purity is needed for concrete curing?"*
+- ℹ️ **Platform info** — e.g. *"What is ReCarbo? How does pricing work?"*
+
+> All match scores, pricing, and freight estimates are computed by **deterministic server logic** — never invented by the AI.
+
+How can I help you today?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -110,30 +122,49 @@ export const AssistantPage: React.FC = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2 text-xs font-semibold text-brand-400 uppercase tracking-wider mb-1">
-            <Sparkles className="w-3.5 h-3.5 text-brand-400" />
-            <span>Anti-Hallucination Grounded AI Engine</span>
+      <div className="rounded-2xl bg-charcoal-900 border border-emerald-950/80 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start space-x-4">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-950 border border-emerald-500/30 flex items-center justify-center flex-shrink-0 shadow-lg">
+            <Bot className="w-6 h-6 text-brand-400" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center space-x-3">
-            <Bot className="w-7 h-7 text-brand-400" />
-            <span>ReCarbo AI Matchmaker & Assistant</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl">
-            Query the live carbon pool in plain natural language. Match scores, pricing, and freight estimates are computed by deterministic server logic — never invented by the LLM.
-          </p>
+          <div>
+            <div className="flex items-center space-x-2 mb-1">
+              <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+                ReCarbo AI
+              </h1>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/30 text-[10px] font-bold text-brand-400 uppercase tracking-wider flex items-center space-x-1">
+                <Sparkles className="w-3 h-3" />
+                <span>Grounded Live Engine</span>
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
+              Powered by <span className="text-brand-400 font-semibold">Groq AI</span> · Match scores, pricing &amp; freight are computed by deterministic logic — never invented by the LLM.
+            </p>
+            <div className="flex items-center space-x-3 mt-2">
+              <span className="flex items-center space-x-1 text-[11px] text-slate-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
+                <span>Live marketplace data</span>
+              </span>
+              <span className="text-slate-700">·</span>
+              <span className="flex items-center space-x-1 text-[11px] text-slate-500">
+                <ShieldCheck className="w-3 h-3 text-cyan-500" />
+                <span>Anti-hallucination grounded</span>
+              </span>
+              <span className="text-slate-700">·</span>
+              <span className="flex items-center space-x-1 text-[11px] text-slate-500">
+                <TrendingUp className="w-3 h-3 text-amber-400" />
+                <span>5-factor scoring</span>
+              </span>
+            </div>
+          </div>
         </div>
-
-        <div className="flex items-center space-x-2">
-          <Link
-            to="/marketplace"
-            className="px-4 py-2 rounded-xl bg-charcoal-900 hover:bg-charcoal-800 border border-emerald-950 text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center space-x-1.5"
-          >
-            <span>Live Marketplace</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </Link>
-        </div>
+        <Link
+          to="/marketplace"
+          className="px-4 py-2 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 border border-emerald-950 text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center space-x-1.5 flex-shrink-0"
+        >
+          <span>Live Marketplace</span>
+          <ExternalLink className="w-3.5 h-3.5" />
+        </Link>
       </div>
 
       {/* Suggested Quick Prompt Pills */}
@@ -179,14 +210,21 @@ export const AssistantPage: React.FC = () => {
                 }`}
               >
                 {/* Text Content */}
-                <div className="text-xs sm:text-sm leading-relaxed prose prose-invert prose-sm max-w-none
-                  prose-p:my-1 prose-p:leading-relaxed
-                  prose-ul:my-1 prose-ul:pl-4 prose-li:my-0.5
-                  prose-strong:text-white prose-strong:font-semibold
-                  prose-headings:text-white prose-headings:font-bold prose-headings:my-1
-                  prose-code:text-brand-300 prose-code:bg-charcoal-900 prose-code:px-1 prose-code:rounded">
-                  <ReactMarkdown>{m.content}</ReactMarkdown>
-                </div>
+                {m.role === 'assistant' ? (
+                  <div className="text-xs sm:text-sm leading-relaxed prose prose-invert prose-sm max-w-none
+                    prose-p:my-1 prose-p:leading-relaxed
+                    prose-ul:my-1 prose-ul:pl-4 prose-li:my-0.5
+                    prose-ol:my-1 prose-ol:pl-4
+                    prose-strong:text-white prose-strong:font-semibold
+                    prose-em:text-slate-300
+                    prose-headings:text-white prose-headings:font-bold prose-headings:mt-2 prose-headings:mb-1
+                    prose-blockquote:border-brand-500 prose-blockquote:text-slate-400 prose-blockquote:not-italic
+                    prose-code:text-brand-300 prose-code:bg-charcoal-900 prose-code:px-1 prose-code:rounded">
+                    <ReactMarkdown>{m.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="text-xs sm:text-sm leading-relaxed">{m.content}</div>
+                )}
 
                 {/* Structured Match Result Cards (if present) */}
                 {m.structuredData?.matches && m.structuredData.matches.length > 0 && (
