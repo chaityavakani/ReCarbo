@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, TransactionMode, ListingStatus, RequirementStatus } from '@prisma/client';
+import { PrismaClient, UserRole, TransactionMode, ListingStatus, RequirementStatus, OrderStatus, PaymentStatus, NotificationType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -37,6 +37,7 @@ async function main() {
       city: 'Bharuch',
       state: 'Gujarat',
       pincode: '392130',
+      country: 'India',
       latitude: 21.7051,
       longitude: 72.9959,
       website: 'https://gujaratcarbon.demo',
@@ -44,6 +45,12 @@ async function main() {
       contactPhone: '+91 98250 11223',
       isVerified: true,
       trustScore: 94.5,
+      verificationStatus: 'VERIFIED',
+      verificationDocs: JSON.stringify({
+        gstin: '24AAACG1234F1Z5',
+        isoCert: 'ISO-14064-GHG-2024',
+        purityReport: 'GC-MS-99.8-CERT-2025',
+      }),
     },
   });
 
@@ -56,6 +63,7 @@ async function main() {
       city: 'Surat',
       state: 'Gujarat',
       pincode: '394270',
+      country: 'India',
       latitude: 21.1702,
       longitude: 72.8311,
       website: 'https://haziragreen.demo',
@@ -63,6 +71,12 @@ async function main() {
       contactPhone: '+91 98250 44556',
       isVerified: true,
       trustScore: 97.0,
+      verificationStatus: 'VERIFIED',
+      verificationDocs: JSON.stringify({
+        gstin: '24AAAHZ9988E2Z1',
+        isoCert: 'ISO-14064-GHG-2024',
+        purityReport: 'AMMONIA-BYPRODUCT-98.5',
+      }),
     },
   });
 
@@ -75,6 +89,7 @@ async function main() {
       city: 'Ahmedabad',
       state: 'Gujarat',
       pincode: '382110',
+      country: 'India',
       latitude: 23.0225,
       longitude: 72.5714,
       website: 'https://aurapolymer.demo',
@@ -82,6 +97,11 @@ async function main() {
       contactPhone: '+91 98250 77889',
       isVerified: true,
       trustScore: 91.0,
+      verificationStatus: 'VERIFIED',
+      verificationDocs: JSON.stringify({
+        gstin: '24AAACA5544D1Z8',
+        gpcbClearance: 'GPCB-CTE-SANAND-2023',
+      }),
     },
   });
 
@@ -94,6 +114,7 @@ async function main() {
       city: 'Vadodara',
       state: 'Gujarat',
       pincode: '391340',
+      country: 'India',
       latitude: 22.3072,
       longitude: 73.1812,
       website: 'https://vadodaraconcrete.demo',
@@ -101,6 +122,7 @@ async function main() {
       contactPhone: '+91 98250 99001',
       isVerified: true,
       trustScore: 89.5,
+      verificationStatus: 'VERIFIED',
     },
   });
 
@@ -113,6 +135,7 @@ async function main() {
       city: 'Surat',
       state: 'Gujarat',
       pincode: '395001',
+      country: 'India',
       latitude: 21.1702,
       longitude: 72.8311,
       website: 'https://recarbo.demo',
@@ -120,6 +143,7 @@ async function main() {
       contactPhone: '+91 98000 00001',
       isVerified: true,
       trustScore: 100.0,
+      verificationStatus: 'VERIFIED',
     },
   });
 
@@ -236,16 +260,15 @@ async function main() {
   console.log('🎯 Demo CO2 Requirements created.');
 
   // 5. Create Deterministic Match Example (Listing 1 <-> Requirement 1)
-  // Distance Bharuch -> Ahmedabad ~190 km
   await prisma.match.create({
     data: {
       listingId: listing1.id,
       requirementId: requirement1.id,
       overallScore: 92.5,
-      quantityScore: 95.0, // 50T supply comfortably covers 30T demand
-      purityScore: 100.0,  // 99.8% exceeds 99.5% requirement
-      distanceScore: 82.0, // ~190km route
-      priceScore: 90.0,    // ₹4.5/kg below buyer's ₹5.0 max budget
+      quantityScore: 95.0,
+      purityScore: 100.0,
+      distanceScore: 82.0,
+      priceScore: 90.0,
       availabilityScore: 95.0,
       explanation: 'Optimal match: Dahej facility offers 99.8% purity (exceeds 99.5% minimum) with 50,000 kg supply against 30,000 kg demand at ₹4.50/kg (under ₹5.00 budget) across a 190 km transit route in Gujarat.',
       status: 'ACTIVE',
@@ -261,37 +284,181 @@ async function main() {
     },
   });
 
-  // 7. Create Demo Notifications
+  // 7. Create Diverse Orders Across Different Status Stages (Order Lifecycle Demonstration)
+  const order1 = await prisma.order.create({
+    data: {
+      orderNumber: 'RC-2025-00124',
+      listingId: listing1.id,
+      buyerCompanyId: buyerCompany1.id,
+      supplierCompanyId: supplierCompany1.id,
+      quantityKg: 30000, // 30 Tonnes
+      unitPricePerKg: 4.5,
+      totalCo2Cost: 135000.0,
+      transportCost: 30000 * 190 * 0.015, // ₹85,500
+      handlingCost: 2500.0,
+      platformFee: (135000.0 + 85500.0 + 2500.0) * 0.025, // ₹5,575
+      totalAmount: 228575.0,
+      status: OrderStatus.CONFIRMED,
+      paymentStatus: PaymentStatus.ESCROW_HELD,
+      deliveryAddress: 'Block C, Sanand Industrial Zone, Ahmedabad, Gujarat',
+      routeDistanceKm: 190.0,
+      transitMethod: 'Cryogenic Road Tanker',
+      estimatedDelivery: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+      notes: 'RFQ Best-Value allocation deal. Ready for cryo packaging.',
+    },
+  });
+
+  const order2 = await prisma.order.create({
+    data: {
+      orderNumber: 'RC-2025-00118',
+      listingId: listing1.id,
+      buyerCompanyId: buyerCompany2.id,
+      supplierCompanyId: supplierCompany1.id,
+      quantityKg: 20000, // 20 Tonnes
+      unitPricePerKg: 4.5,
+      totalCo2Cost: 90000.0,
+      transportCost: 20000 * 85 * 0.015, // ₹25,500 (Dahej -> Vadodara ~85km)
+      handlingCost: 2500.0,
+      platformFee: (90000.0 + 25500.0 + 2500.0) * 0.025, // ₹2,950
+      totalAmount: 120950.0,
+      status: OrderStatus.PROCESSING,
+      paymentStatus: PaymentStatus.ESCROW_HELD,
+      deliveryAddress: 'Highway 8, Nandesari GIDC, Vadodara, Gujarat',
+      routeDistanceKm: 85.0,
+      transitMethod: 'Cryogenic Road Tanker',
+      estimatedDelivery: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+      notes: 'Cryogenic pressure filling in progress at Dahej Terminal 3.',
+    },
+  });
+
+  const order3 = await prisma.order.create({
+    data: {
+      orderNumber: 'RC-2025-00109',
+      listingId: listing2.id,
+      buyerCompanyId: buyerCompany1.id,
+      supplierCompanyId: supplierCompany2.id,
+      quantityKg: 25000, // 25 Tonnes
+      unitPricePerKg: 3.2,
+      totalCo2Cost: 80000.0,
+      transportCost: 25000 * 260 * 0.015, // ₹97,500 (Hazira -> Sanand ~260km)
+      handlingCost: 2500.0,
+      platformFee: (80000.0 + 97500.0 + 2500.0) * 0.025, // ₹4,500
+      totalAmount: 184500.0,
+      status: OrderStatus.IN_TRANSIT,
+      paymentStatus: PaymentStatus.ESCROW_HELD,
+      trackingNumber: 'TRK-GUJ-88214',
+      deliveryAddress: 'Block C, Sanand Industrial Zone, Ahmedabad, Gujarat',
+      routeDistanceKm: 260.0,
+      transitMethod: 'High-Pressure Gas Tube Trailer',
+      estimatedDelivery: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
+      notes: 'En route on NH48. Live GPS telemetry active.',
+    },
+  });
+
+  const order4 = await prisma.order.create({
+    data: {
+      orderNumber: 'RC-2025-00098',
+      listingId: listing2.id,
+      buyerCompanyId: buyerCompany2.id,
+      supplierCompanyId: supplierCompany2.id,
+      quantityKg: 50000, // 50 Tonnes
+      unitPricePerKg: 3.2,
+      totalCo2Cost: 160000.0,
+      transportCost: 50000 * 155 * 0.015, // ₹116,250 (Hazira -> Vadodara ~155km)
+      handlingCost: 2500.0,
+      platformFee: (160000.0 + 116250.0 + 2500.0) * 0.025, // ₹6,968.75
+      totalAmount: 285718.75,
+      status: OrderStatus.DELIVERED,
+      paymentStatus: PaymentStatus.RELEASED,
+      trackingNumber: 'TRK-GUJ-87650',
+      deliveryAddress: 'Highway 8, Nandesari GIDC, Vadodara, Gujarat',
+      routeDistanceKm: 155.0,
+      transitMethod: 'High-Pressure Gas Tube Trailer',
+      estimatedDelivery: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+      notes: 'Delivered and signed off at Vadodara reception bay. Escrow settled.',
+    },
+  });
+
+  const order5 = await prisma.order.create({
+    data: {
+      orderNumber: 'RC-2025-00085',
+      listingId: listing1.id,
+      buyerCompanyId: buyerCompany1.id,
+      supplierCompanyId: supplierCompany1.id,
+      quantityKg: 30000, // 30 Tonnes
+      unitPricePerKg: 4.5,
+      totalCo2Cost: 135000.0,
+      transportCost: 30000 * 190 * 0.015,
+      handlingCost: 2500.0,
+      platformFee: 5575.0,
+      totalAmount: 228575.0,
+      status: OrderStatus.UTILIZED,
+      paymentStatus: PaymentStatus.RELEASED,
+      deliveryAddress: 'Block C, Sanand Industrial Zone, Ahmedabad, Gujarat',
+      routeDistanceKm: 190.0,
+      transitMethod: 'Cryogenic Road Tanker',
+      estimatedDelivery: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      notes: '100% incorporated into polymer synthesis batch. Carbon credits minted.',
+    },
+  });
+
+  console.log('🚚 Seeded 5 Realistic Orders across Lifecycle Stages (CONFIRMED, PROCESSING, IN_TRANSIT, DELIVERED, UTILIZED).');
+
+  // 8. Create Demo Notifications
   await prisma.notification.createMany({
     data: [
       {
         userId: buyerUser.id,
         title: 'New AI Match Available (92.5%)',
         message: 'Gujarat Carbon Capture Ltd posted 50,000 kg Liquid CO2 matching your Polycarbonate Feedstock requirement.',
-        type: 'MATCH_FOUND',
+        type: NotificationType.MATCH_FOUND,
         linkUrl: '/marketplace',
         isRead: false,
       },
       {
+        userId: buyerUser.id,
+        title: 'CO2 Shipment Dispatched (In-Transit)',
+        message: 'Order RC-2025-00109 has been dispatched from Hazira via High-Pressure Gas Trailer. Tracking: TRK-GUJ-88214.',
+        type: NotificationType.ORDER_STATUS_CHANGED,
+        linkUrl: '/orders',
+        isRead: false,
+      },
+      {
+        userId: buyerUser.id,
+        title: 'Quote Allocated (30.0 Tonnes)',
+        message: 'Your quote on "High-Purity Liquid CO2 (99.8%)" was allocated. Order RC-2025-00124 is now confirmed.',
+        type: NotificationType.QUOTE_ACCEPTED,
+        linkUrl: '/orders',
+        isRead: true,
+      },
+      {
         userId: supplierUser.id,
-        title: 'Listing Activated',
-        message: 'Your listing "High-Purity Liquid CO2 (99.8%)" is now active on the marketplace.',
-        type: 'SYSTEM_ALERT',
-        linkUrl: '/listings',
+        title: 'Order Confirmed: RC-2025-00124',
+        message: 'Aura Polymer Materials confirmed procurement of 30 Tonnes CO2. Escrow payment held.',
+        type: NotificationType.ORDER_PLACED,
+        linkUrl: '/orders',
+        isRead: false,
+      },
+      {
+        userId: supplierUser.id,
+        title: 'Order Delivered: RC-2025-00098',
+        message: 'Vadodara Eco-Concrete Works confirmed receipt. Escrow funds (₹1,60,000) released to your account.',
+        type: NotificationType.ORDER_DELIVERED,
+        linkUrl: '/orders',
         isRead: true,
       },
       {
         userId: adminUser.id,
         title: 'Platform System Health',
-        message: 'Marketplace operational with 2 active listings and 2 verified companies.',
-        type: 'SYSTEM_ALERT',
-        linkUrl: '/admin',
+        message: 'Marketplace operational with 5 transactions and ₹8.6L gross turnover across Gujarat industrial hub.',
+        type: NotificationType.SYSTEM_ALERT,
+        linkUrl: '/admin/overview',
         isRead: false,
-      }
-    ]
+      },
+    ],
   });
 
-  // 8. Create Initial Audit Logs
+  // 9. Create Initial Audit Logs
   await prisma.auditLog.createMany({
     data: [
       {
@@ -304,13 +471,21 @@ async function main() {
       },
       {
         userId: supplierUser.id,
-        action: 'LISTING_CREATED',
-        entityType: 'CO2Listing',
-        entityId: listing1.id,
-        details: 'Created listing 50,000 kg Liquid CO2 at ₹4.5/kg',
+        action: 'ORDER_STATUS_CONFIRMED',
+        entityType: 'Order',
+        entityId: order1.id,
+        details: JSON.stringify({ orderNumber: order1.orderNumber, status: 'CONFIRMED' }),
         ipAddress: '127.0.0.1',
-      }
-    ]
+      },
+      {
+        userId: buyerUser.id,
+        action: 'ORDER_STATUS_UTILIZED',
+        entityType: 'Order',
+        entityId: order5.id,
+        details: JSON.stringify({ orderNumber: order5.orderNumber, status: 'UTILIZED' }),
+        ipAddress: '127.0.0.1',
+      },
+    ],
   });
 
   console.log('✅ Seed completed successfully!');

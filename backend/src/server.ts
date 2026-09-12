@@ -16,6 +16,7 @@ import orderRoutes from './routes/order-routes';
 import notificationRoutes from './routes/notification-routes';
 import settingsRoutes from './routes/settings-routes';
 import adminRoutes from './routes/admin-routes';
+import analyticsRoutes from './routes/analytics-routes';
 
 const app = express();
 const server = http.createServer(app);
@@ -62,6 +63,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

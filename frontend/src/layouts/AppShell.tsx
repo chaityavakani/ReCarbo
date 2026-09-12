@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from '../components/Sidebar';
 import { Topbar } from '../components/Topbar';
+import { ToastContainer } from '../components/ToastContainer';
 
 export const AppShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -25,6 +26,9 @@ export const AppShell: React.FC = () => {
         <footer className="border-t border-emerald-950/40 py-4 px-6 text-center text-xs text-slate-400">
           ReCarbo v1.0 • Circular Carbon Ecosystem Platform • Built by The Outliers
         </footer>
+
+        {/* Global Real-time Toast Notifications */}
+        <ToastContainer />
       </div>
     </div>
   );

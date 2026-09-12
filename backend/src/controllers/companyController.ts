@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { CompanyService } from '../services/companyService';
+import { TrustService } from '../services/trustService';
 import { z } from 'zod';
 
 const updateCompanySchema = z.object({
@@ -72,19 +73,62 @@ export class CompanyController {
     }
   }
 
-  static async verifyCompany(req: Request, res: Response, next: NextFunction) {
+  /**
+   * GET /api/companies/:id/trust-breakdown
+   * Get explainable 6-factor trust breakdown
+   */
+  static async getTrustBreakdown(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { isVerified, trustScore } = req.body;
+      const breakdown = await TrustService.getTrustBreakdown(id);
+      return res.status(200).json({ trustBreakdown: breakdown });
+    } catch (error) {
+      next(error);
+    }
+  }
 
-      const updated = await CompanyService.verifyCompany(
-        id,
-        isVerified,
-        trustScore !== undefined ? Number(trustScore) : undefined,
-        req.user?.userId
-      );
+  /**
+   * POST /api/companies/verify-request
+   * Submit documents for verification review
+   */
+  static async submitVerificationRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+      }
 
-      return res.status(200).json({ company: updated });
+      const companyId = req.user.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: { code: 'NO_COMPANY', message: 'User must belong to a company' } });
+      }
+
+      const { documents, notes } = req.body;
+      const company = await TrustService.submitVerificationRequest(companyId, { documents, notes }, req.user.userId);
+
+      return res.status(200).json({
+        company,
+        message: 'Verification request submitted for admin review.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PATCH /api/companies/:id/verify
+   * Admin approves/rejects verification
+   */
+  static async verifyCompany(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user || req.user.role !== 'ADMIN') {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Admin access required' } });
+      }
+
+      const { id } = req.params;
+      const { isVerified, notes = 'Admin compliance audit approved.' } = req.body;
+
+      const result = await TrustService.reviewVerification(id, Boolean(isVerified), notes, req.user.userId);
+      return res.status(200).json(result);
     } catch (error) {
       next(error);
     }

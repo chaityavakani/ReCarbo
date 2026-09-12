@@ -62,11 +62,14 @@ enum QuoteStatus {
 }
 
 enum OrderStatus {
-  DRAFT
+  PENDING
   CONFIRMED
+  PROCESSING
   IN_TRANSIT
   DELIVERED
+  UTILIZED
   CANCELLED
+  DRAFT
 }
 
 enum PaymentStatus {
@@ -80,10 +83,14 @@ enum NotificationType {
   MATCH_FOUND
   QUOTE_RECEIVED
   QUOTE_ACCEPTED
+  QUOTE_REJECTED
   ORDER_PLACED
   ORDER_STATUS_CHANGED
+  ORDER_DELIVERED
+  PAYMENT_RECEIVED
   SYSTEM_ALERT
   VERIFICATION_UPDATE
+  AI_RECOMMENDATION
 }
 
 // ==========================================
@@ -129,6 +136,8 @@ model Company {
   isVerified      Boolean          @default(false)
   trustScore      Float            @default(80.0) // 0 - 100 trust and reliability score
   verificationDocs String?         // JSON string or link to certificates
+  verificationStatus String        @default("UNVERIFIED") // UNVERIFIED, PENDING_REVIEW, VERIFIED, REJECTED
+  verificationNotes  String?
 
   users           User[]
   listings        CO2Listing[]
@@ -318,11 +327,14 @@ model Order {
   platformFee       Float
   totalAmount       Float
   
-  status            OrderStatus   @default(DRAFT)
+  status            OrderStatus   @default(PENDING)
   paymentStatus     PaymentStatus @default(PENDING)
   deliveryAddress   String?
   trackingNumber    String?
   estimatedDelivery DateTime?
+  routeDistanceKm   Float?
+  transitMethod     String?       @default("Cryogenic Road Tanker") // Cryogenic Road Tanker, High-Pressure Gas Tube Trailer, Pipeline
+  notes             String?
 
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt

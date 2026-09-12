@@ -4,7 +4,20 @@ export type ListingStatus = 'ACTIVE' | 'PENDING_REVIEW' | 'PAUSED' | 'SOLD_OUT' 
 export type TransactionMode = 'FIXED_PRICE' | 'REQUEST_QUOTE';
 export type RequirementStatus = 'OPEN' | 'MATCHED' | 'FULFILLED' | 'CANCELLED';
 export type QuoteStatus = 'PENDING' | 'ACCEPTED' | 'PARTIALLY_ACCEPTED' | 'REJECTED';
-export type OrderStatus = 'DRAFT' | 'CONFIRMED' | 'IN_TRANSIT' | 'DELIVERED' | 'CANCELLED';
+export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'IN_TRANSIT' | 'DELIVERED' | 'UTILIZED' | 'CANCELLED' | 'DRAFT';
+
+export type NotificationType =
+  | 'MATCH_FOUND'
+  | 'QUOTE_RECEIVED'
+  | 'QUOTE_ACCEPTED'
+  | 'QUOTE_REJECTED'
+  | 'ORDER_PLACED'
+  | 'ORDER_STATUS_CHANGED'
+  | 'ORDER_DELIVERED'
+  | 'PAYMENT_RECEIVED'
+  | 'SYSTEM_ALERT'
+  | 'VERIFICATION_UPDATE'
+  | 'AI_RECOMMENDATION';
 
 export interface Company {
   id: string;
@@ -23,7 +36,9 @@ export interface Company {
   contactPhone?: string | null;
   isVerified: boolean;
   trustScore: number;
+  verificationStatus?: string;
   verificationDocs?: string | null;
+  verificationNotes?: string | null;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -121,6 +136,9 @@ export interface Order {
   deliveryAddress?: string | null;
   trackingNumber?: string | null;
   estimatedDelivery?: string | null;
+  routeDistanceKm?: number | null;
+  transitMethod?: string | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -130,10 +148,93 @@ export interface NotificationItem {
   userId: string;
   title: string;
   message: string;
-  type: string;
+  type: NotificationType;
   isRead: boolean;
   linkUrl?: string | null;
   createdAt: string;
+}
+
+export interface TrustFactor {
+  id: string;
+  name: string;
+  weight: number;
+  score: number;
+  contribution: number;
+  description: string;
+  status: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'UNVERIFIED';
+}
+
+export interface TrustScoreBreakdown {
+  companyId: string;
+  companyName: string;
+  isVerified: boolean;
+  verificationStatus: string;
+  overallScore: number;
+  grade: 'AAA' | 'AA' | 'A' | 'BBB' | 'UNRATED';
+  summary: string;
+  factors: TrustFactor[];
+  lastCalculatedAt: string;
+}
+
+export interface SupplierAnalytics {
+  totalRevenue: number;
+  realizedRevenue: number;
+  escrowInFlightRevenue: number;
+  totalVolumeSoldTonnes: number;
+  totalVolumeSoldKg: number;
+  totalVolumeDeliveredTonnes: number;
+  activeSupplyInventoryTonnes: number;
+  avgRealizedPricePerKg: number;
+  avgQuotePriceReceived: number;
+  totalRfqs: number;
+  allocatedRfqs: number;
+  rfqConversionRate: number;
+  topBuyers: Array<{
+    companyId: string;
+    name: string;
+    city: string;
+    volumeKg: number;
+    totalSpend: number;
+    orderCount: number;
+  }>;
+  monthlyTrends: Array<{
+    month: string;
+    revenue: number;
+    volumeTonnes: number;
+    orders: number;
+  }>;
+  activeOrdersCount: number;
+  deliveredOrdersCount: number;
+}
+
+export interface BuyerAnalytics {
+  totalSpend: number;
+  totalVolumePurchasedTonnes: number;
+  totalVolumePurchasedKg: number;
+  totalVolumeUtilizedTonnes: number;
+  totalVolumeUtilizedKg: number;
+  totalDemandTonnes: number;
+  avgPricePerKg: number;
+  costSavingsAmount: number;
+  costAvoidancePercent: number;
+  topSuppliers: Array<{
+    companyId: string;
+    name: string;
+    city: string;
+    volumeKg: number;
+    totalSpend: number;
+    avgPurity: number;
+    orderCount: number;
+  }>;
+  monthlyTrends: Array<{
+    month: string;
+    spend: number;
+    volumeTonnes: number;
+    orders: number;
+  }>;
+  statusCounts: Record<string, number>;
+  activeOrdersCount: number;
+  requirementsCount: number;
 }
 
 export type AllocationPolicy = 'FCFS' | 'HIGHEST_PRICE' | 'BEST_VALUE';
@@ -208,4 +309,3 @@ export interface PlatformSettings {
   effectiveFrom: string;
   effectiveTo?: string | null;
 }
-

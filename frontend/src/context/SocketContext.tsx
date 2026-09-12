@@ -18,7 +18,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const { user } = useAuth();
 
   useEffect(() => {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+    const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:5000';
     const newSocket = io(backendUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true,

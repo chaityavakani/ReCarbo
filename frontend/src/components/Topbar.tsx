@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { notificationService } from '../services/notificationService';
+import { NotificationItem } from '../types';
 import {
   Menu,
   Bell,
@@ -11,6 +13,10 @@ import {
   ShieldCheck,
   Radio,
   ExternalLink,
+  CheckCheck,
+  Truck,
+  Sparkles,
+  Scale,
 } from 'lucide-react';
 
 interface TopbarProps {
@@ -19,10 +25,69 @@ interface TopbarProps {
 
 export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
   const { user, company, logout } = useAuth();
-  const { isConnected } = useSocket();
+  const { isConnected, socket } = useSocket();
   const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotificationsMenu, setShowNotificationsMenu] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  const loadNotifications = async () => {
+    if (!user) return;
+    try {
+      const data = await notificationService.getNotifications();
+      setNotifications(data.notifications);
+      setUnreadCount(data.unreadCount);
+    } catch (err) {
+      console.error('Failed to load notifications in topbar', err);
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, [user?.id]);
+
+  // Real-time socket notification listener
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewNotification = (notif: NotificationItem) => {
+      setNotifications((prev) => [notif, ...prev]);
+      setUnreadCount((prev) => prev + 1);
+    };
+
+    socket.on('notification:new', handleNewNotification);
+
+    return () => {
+      socket.off('notification:new', handleNewNotification);
+    };
+  }, [socket]);
+
+  const handleMarkAsRead = async (id: string, linkUrl?: string | null) => {
+    try {
+      await notificationService.markAsRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+      if (linkUrl) {
+        setShowNotificationsMenu(false);
+        navigate(linkUrl);
+      }
+    } catch (err) {
+      console.error('Failed to mark read', err);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error('Failed to mark all read', err);
+    }
+  };
 
   const roleColor =
     user?.role === 'ADMIN'
@@ -30,6 +95,22 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
       : user?.role === 'SUPPLIER'
       ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/40'
       : 'bg-cyan-950/70 text-cyan-300 border-cyan-500/40';
+
+  const getNotifIcon = (type: string) => {
+    switch (type) {
+      case 'ORDER_STATUS_CHANGED':
+      case 'ORDER_DELIVERED':
+      case 'ORDER_PLACED':
+        return <Truck className="w-3.5 h-3.5 text-cyan-400" />;
+      case 'MATCH_FOUND':
+        return <Sparkles className="w-3.5 h-3.5 text-emerald-400" />;
+      case 'QUOTE_ACCEPTED':
+      case 'QUOTE_RECEIVED':
+        return <Scale className="w-3.5 h-3.5 text-brand-400" />;
+      default:
+        return <Bell className="w-3.5 h-3.5 text-emerald-400" />;
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 h-16 w-full bg-charcoal-900/90 backdrop-blur-md border-b border-emerald-950/60 px-4 sm:px-6 flex items-center justify-between">
@@ -87,39 +168,89 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
             className="relative p-2 rounded-lg text-slate-400 hover:text-white hover:bg-charcoal-800 transition-colors"
           >
             <Bell className="w-5 h-5" />
-            {(user?.unreadNotificationsCount || 0) > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-brand-500 animate-ping" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-brand-500 animate-ping" />
             )}
-            {(user?.unreadNotificationsCount || 0) > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-brand-500" />
+            {unreadCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-brand-500 text-[10px] font-extrabold text-charcoal-950 flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
             )}
           </button>
 
           {/* Notifications Dropdown */}
           {showNotificationsMenu && (
-            <div className="absolute right-0 mt-2 w-80 rounded-xl bg-charcoal-900 border border-emerald-900/40 shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
-              <div className="flex items-center justify-between pb-2 border-b border-emerald-950/60">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                  Notifications
-                </span>
-                <Link
-                  to="/notifications"
-                  onClick={() => setShowNotificationsMenu(false)}
-                  className="text-xs text-brand-400 hover:underline flex items-center space-x-1"
-                >
-                  <span>View all</span>
-                  <ExternalLink className="w-3 h-3" />
-                </Link>
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-charcoal-900 border border-emerald-900/40 shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
+              <div className="flex items-center justify-between pb-2 border-b border-emerald-950/60 px-1">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-white">
+                    Notifications
+                  </span>
+                  {unreadCount > 0 && (
+                    <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-brand-500/20 text-brand-300">
+                      {unreadCount} new
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center space-x-3">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="text-[11px] text-slate-400 hover:text-emerald-300 flex items-center space-x-1"
+                    >
+                      <CheckCheck className="w-3 h-3" />
+                      <span>Mark all read</span>
+                    </button>
+                  )}
+                  <Link
+                    to="/notifications"
+                    onClick={() => setShowNotificationsMenu(false)}
+                    className="text-xs text-brand-400 hover:underline flex items-center space-x-1 font-medium"
+                  >
+                    <span>View all</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </Link>
+                </div>
               </div>
-              <div className="py-2 space-y-2 text-xs">
-                <div className="p-2 rounded-lg bg-charcoal-800/80 border border-emerald-500/20">
-                  <p className="font-semibold text-emerald-300">Dahej Liquid CO2 Stream Match</p>
-                  <p className="text-slate-400 mt-0.5">High purity 99.8% listing with 92.5% AI match score.</p>
-                </div>
-                <div className="p-2 rounded-lg bg-charcoal-800/40">
-                  <p className="font-semibold text-slate-300">Welcome to ReCarbo</p>
-                  <p className="text-slate-400 mt-0.5">Your organization is active on the Gujarat Carbon Hub.</p>
-                </div>
+
+              <div className="py-2 space-y-2 max-h-80 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-500">
+                    No notifications yet.
+                  </div>
+                ) : (
+                  notifications.slice(0, 6).map((notif) => (
+                    <div
+                      key={notif.id}
+                      onClick={() => handleMarkAsRead(notif.id, notif.linkUrl)}
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-start space-x-2.5 ${
+                        notif.isRead
+                          ? 'bg-charcoal-950/50 border-emerald-950/30 text-slate-400 hover:bg-charcoal-800/60'
+                          : 'bg-charcoal-950 border-emerald-500/30 text-slate-200 hover:border-emerald-400 shadow-sm'
+                      }`}
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-charcoal-900 border border-emerald-950 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        {getNotifIcon(notif.type)}
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-white truncate">
+                            {notif.title}
+                          </p>
+                          <span className="text-[9px] text-slate-500 ml-1">
+                            {new Date(notif.createdAt).toLocaleDateString([], {
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug line-clamp-2">
+                          {notif.message}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -158,7 +289,16 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
                 className="flex items-center space-x-2.5 px-4 py-2 text-xs text-slate-300 hover:text-white hover:bg-charcoal-800 transition-colors"
               >
                 <Building className="w-4 h-4 text-brand-400" />
-                <span>Company Profile</span>
+                <span>Company Profile & Trust</span>
+              </Link>
+
+              <Link
+                to="/orders"
+                onClick={() => setShowProfileMenu(false)}
+                className="flex items-center space-x-2.5 px-4 py-2 text-xs text-slate-300 hover:text-white hover:bg-charcoal-800 transition-colors"
+              >
+                <Truck className="w-4 h-4 text-cyan-400" />
+                <span>Orders & Ledger</span>
               </Link>
 
               <Link

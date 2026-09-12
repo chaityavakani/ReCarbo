@@ -47,8 +47,8 @@ export const AdminDashboard: React.FC = () => {
 
   const handleVerify = async (companyId: string, currentStatus: boolean) => {
     try {
-      const updated = await companyService.verifyCompany(companyId, !currentStatus, 95.0);
-      setCompanies((prev) => prev.map((c) => (c.id === companyId ? updated : c)));
+      const result = await companyService.verifyCompany(companyId, !currentStatus);
+      setCompanies((prev) => prev.map((c) => (c.id === companyId ? result.company : c)));
     } catch (err) {
       console.error('Failed to update verification', err);
     }
