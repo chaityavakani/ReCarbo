@@ -13,12 +13,16 @@ export const SOCKET_EVENTS = {
 
   // Marketplace & Listings
   LISTING_CREATED: 'listing:created',
+  LISTING_OPENED: 'listing:opened',
   LISTING_UPDATED: 'listing:updated',
   LISTING_CLOSED: 'listing:closed',
+  LISTING_ALLOCATED: 'listing:allocated',
+  LISTING_DEADLINE_APPROACHING: 'listing:deadline_approaching',
 
   // Quotes & RFQ
   QUOTE_REQUEST_CREATED: 'quote_request:created',
   QUOTE_SUBMITTED: 'quote:submitted',
+  QUOTE_UPDATED: 'quote:updated',
   QUOTE_ACCEPTED: 'quote:accepted',
   QUOTE_REJECTED: 'quote:rejected',
   ALLOCATION_RESOLVED: 'allocation:resolved',

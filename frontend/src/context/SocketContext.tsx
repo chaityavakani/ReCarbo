@@ -18,12 +18,13 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const { user } = useAuth();
 
   useEffect(() => {
-    const socketUrl = window.location.origin;
-    const newSocket = io(socketUrl, {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+    const newSocket = io(backendUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
 
     newSocket.on('connect', () => {

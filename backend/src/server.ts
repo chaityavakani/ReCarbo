@@ -1,9 +1,9 @@
+import 'dotenv/config';
 import express from 'express';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
 import { errorHandler } from './middleware/errorHandler';
 import { initSocket } from './socket/socketHandler';
 import { logger } from './utils/logger';
@@ -16,8 +16,6 @@ import orderRoutes from './routes/order-routes';
 import notificationRoutes from './routes/notification-routes';
 import settingsRoutes from './routes/settings-routes';
 import adminRoutes from './routes/admin-routes';
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);

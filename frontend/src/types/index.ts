@@ -136,6 +136,71 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+export type AllocationPolicy = 'FCFS' | 'HIGHEST_PRICE' | 'BEST_VALUE';
+
+export interface Quote {
+  id: string;
+  quoteRequestId: string;
+  quoteRequest?: QuoteRequest;
+  buyerCompanyId: string;
+  buyerCompany: Company;
+  offeredQuantityKg: number;
+  offeredPricePerKg: number;
+  status: QuoteStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Allocation {
+  id: string;
+  quoteRequestId: string;
+  quoteId: string;
+  quote: Quote;
+  allocatedQuantityKg: number;
+  agreedPricePerKg: number;
+  allocationStatus: string;
+  createdAt: string;
+}
+
+export interface QuoteRequest {
+  id: string;
+  listingId: string;
+  listing: CO2Listing;
+  requirementId?: string | null;
+  requirement?: CO2Requirement | null;
+  status: 'OPEN' | 'EVALUATING' | 'ALLOCATED' | 'CLOSED';
+  deadline: string;
+  allocationPolicy: AllocationPolicy;
+  quotes?: Quote[];
+  allocations?: Allocation[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AIMatchResult {
+  listingId: string;
+  requirementId: string;
+  overallScore: number;
+  quantityScore: number;
+  purityScore: number;
+  distanceScore: number;
+  priceScore: number;
+  availabilityScore: number;
+  explanation: string;
+  isEligible: boolean;
+  distanceKm: number;
+  estimatedLandedCost: {
+    co2Cost: number;
+    transportCost: number;
+    handlingCost: number;
+    platformFee: number;
+    totalAmount: number;
+    costPerKg: number;
+  };
+  listing: CO2Listing;
+  requirement?: CO2Requirement;
+}
+
 export interface PlatformSettings {
   id: string;
   feePercentage: number;
@@ -143,3 +208,4 @@ export interface PlatformSettings {
   effectiveFrom: string;
   effectiveTo?: string | null;
 }
+

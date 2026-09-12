@@ -62,3 +62,38 @@ export const authMiddleware = async (
     });
   }
 };
+
+export const optionalAuthMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next();
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = verifyToken(token);
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true, email: true, role: true, companyId: true },
+    });
+
+    if (user) {
+      req.user = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId,
+      };
+    }
+
+    next();
+  } catch {
+    next();
+  }
+};
+

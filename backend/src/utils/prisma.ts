@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { PrismaClient } from '@prisma/client';
 
 declare global {
@@ -14,3 +17,4 @@ export const prisma =
 if (process.env.NODE_ENV !== 'production') {
   globalThis.prismaGlobal = prisma;
 }
+

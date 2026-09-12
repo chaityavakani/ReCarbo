@@ -3,25 +3,26 @@ import { createAuditLog } from './auditService';
 
 export class SettingsService {
   static async getActivePlatformFee() {
-    const fee = await prisma.platformFee.findFirst({
-      where: { effectiveTo: null },
-      orderBy: { createdAt: 'desc' },
-    });
+    try {
+      const fee = await prisma.platformFee.findFirst({
+        where: { effectiveTo: null },
+        orderBy: { createdAt: 'desc' },
+      });
 
-    if (!fee) {
-      // Fallback from environment variables if not yet in DB
-      const defaultFee = parseFloat(process.env.PLATFORM_FEE_PERCENTAGE || '2.5');
-      const defaultRate = parseFloat(process.env.TRANSPORT_RATE || '0.015');
-      return {
-        id: 'default',
-        feePercentage: defaultFee,
-        transportRatePerKmKg: defaultRate,
-        effectiveFrom: new Date(),
-        effectiveTo: null,
-      };
+      if (fee) return fee;
+    } catch {
+      // Fallback below
     }
 
-    return fee;
+    const defaultFee = parseFloat(process.env.PLATFORM_FEE_PERCENTAGE || '2.5');
+    const defaultRate = parseFloat(process.env.TRANSPORT_RATE || '0.015');
+    return {
+      id: 'default',
+      feePercentage: defaultFee,
+      transportRatePerKmKg: defaultRate,
+      effectiveFrom: new Date(),
+      effectiveTo: null,
+    };
   }
 
   static async updatePlatformFee(feePercentage: number, transportRatePerKmKg: number, adminUserId: string) {
