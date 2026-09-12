@@ -35,6 +35,7 @@ import {
   IndianRupee,
   ShieldCheck,
 } from 'lucide-react';
+import { CO2AnimatedBackground } from '../../components/CO2AnimatedBackground';
 
 export const BuyerDashboard: React.FC = () => {
   const { user, company } = useAuth();
@@ -71,7 +72,7 @@ export const BuyerDashboard: React.FC = () => {
     <div className="space-y-6">
       {/* Welcome Banner */}
       <div className="rounded-3xl bg-gradient-to-r from-cyan-950/80 via-charcoal-900 to-charcoal-900 border border-cyan-500/20 p-6 sm:p-8 relative overflow-hidden shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
+        <CO2AnimatedBackground variant="cyan" />
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div>

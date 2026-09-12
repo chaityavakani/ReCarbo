@@ -55,6 +55,7 @@ import {
   Ban,
   FileText,
 } from 'lucide-react';
+import { CO2AnimatedBackground } from '../../components/CO2AnimatedBackground';
 
 type AdminTab = 'overview' | 'users' | 'companies' | 'marketplace' | 'audit-logs';
 
@@ -214,6 +215,7 @@ export const AdminDashboard: React.FC = () => {
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Admin Hero Header */}
       <div className="rounded-3xl bg-gradient-to-r from-amber-950/80 via-charcoal-900 to-charcoal-900 border border-amber-500/30 p-6 sm:p-8 relative overflow-hidden shadow-2xl">
+        <CO2AnimatedBackground variant="amber" />
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div>
             <div className="flex items-center space-x-2 text-xs font-semibold text-amber-400 uppercase tracking-wider mb-2">

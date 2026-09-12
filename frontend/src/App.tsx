@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
+import { SplashScreen } from './components/SplashScreen';
 
 // Layouts
 import { AppShell } from './layouts/AppShell';
@@ -34,7 +35,19 @@ import { AdminOverviewPage } from './pages/admin/AdminOverviewPage';
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
 
 export function App() {
+  // Show splash only once per browser session
+  const [showSplash, setShowSplash] = useState<boolean>(
+    () => !sessionStorage.getItem('recarbo_splash_shown')
+  );
+
+  const handleSplashComplete = () => {
+    sessionStorage.setItem('recarbo_splash_shown', '1');
+    setShowSplash(false);
+  };
+
   return (
+    <>
+      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
     <BrowserRouter>
       <AuthProvider>
         <SocketProvider>
@@ -79,6 +92,7 @@ export function App() {
         </SocketProvider>
       </AuthProvider>
     </BrowserRouter>
+    </>
   );
 }
 
