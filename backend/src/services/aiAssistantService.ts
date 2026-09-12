@@ -1,6 +1,57 @@
 import { prisma } from '../utils/prisma';
 import { MatchingService } from './matchingService';
 import { SettingsService } from './settingsService';
+import https from 'https';
+
+const HF_TOKEN = process.env.HUGGINGFACE_API_TOKEN;
+const HF_MODEL = 'mistralai/Mistral-7B-Instruct-v0.2';
+
+/**
+ * Call Hugging Face Inference API with a prompt.
+ * Falls back to null on any error so the caller can use a templated reply.
+ */
+async function callHuggingFace(prompt: string): Promise<string | null> {
+  if (!HF_TOKEN) return null;
+
+  return new Promise((resolve) => {
+    const body = JSON.stringify({
+      inputs: prompt,
+      parameters: { max_new_tokens: 350, temperature: 0.3, return_full_text: false },
+    });
+
+    const req = https.request(
+      {
+        hostname: 'api-inference.huggingface.co',
+        path: `/models/${HF_MODEL}`,
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${HF_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            // HF returns array: [{ generated_text: '...' }]
+            const text = parsed?.[0]?.generated_text?.trim();
+            resolve(text || null);
+          } catch {
+            resolve(null);
+          }
+        });
+      }
+    );
+
+    req.on('error', () => resolve(null));
+    req.setTimeout(15000, () => { req.destroy(); resolve(null); });
+    req.write(body);
+    req.end();
+  });
+}
 
 export interface ParsedSearchFilters {
   quantityKg?: number;
@@ -280,7 +331,23 @@ export class AIAssistantService {
     }
 
     const top = results[0];
-    const reply = 'I evaluated our live Gujarat carbon pool for your request. Found **' + results.length + ' eligible listing(s)** with deterministic 5-factor scoring:\n\n' +
+
+    // Build a compact context string for HF — only facts, no invented numbers
+    const contextLines = results.slice(0, 3).map((r, i) =>
+      `#${i + 1} ${r.supplierName} (${r.supplierCity}): ${r.purityPercentage}% purity, ₹${r.pricePerKg.toFixed(2)}/kg, ${r.quantityAvailableTonnes}T available, ${r.distanceKm}km away, overall score ${r.overallScore}%, landed cost ₹${r.landedCostPerKg}/kg`
+    ).join('\n');
+
+    const hfPrompt =
+      `<s>[INST] You are ReCarbo AI, an assistant for a B2B industrial CO2 marketplace in Gujarat, India.\n` +
+      `A buyer asked: "${rawQuery}"\n\n` +
+      `The deterministic matching engine found these results from the live database:\n${contextLines}\n\n` +
+      `Write a concise 3-4 sentence response recommending the best match and briefly explaining why, using only the numbers above. Do not invent any data. [/INST]`;
+
+    const hfReply = await callHuggingFace(hfPrompt);
+
+    // Fallback to templated reply if HF is unavailable
+    const reply = hfReply ||
+      'I evaluated our live Gujarat carbon pool for your request. Found **' + results.length + ' eligible listing(s)** with deterministic 5-factor scoring:\n\n' +
       '🏆 **Top Match: ' + top.supplierName + ' (' + top.overallScore + '% fit)**\n' +
       '• **Purity:** ' + top.purityPercentage + '% ' + top.stateOfMatter + ' (' + top.captureMethod + ')\n' +
       '• **Supply Capacity:** ' + top.quantityAvailableTonnes + ' Tonnes in ' + top.supplierCity + '\n' +
@@ -293,10 +360,7 @@ export class AIAssistantService {
     return {
       reply,
       actionType: 'MATCH_RECOMMENDATION',
-      structuredData: {
-        filtersParsed: filters,
-        matches: results,
-      },
+      structuredData: { filtersParsed: filters, matches: results },
     };
   }
 
@@ -321,19 +385,27 @@ export class AIAssistantService {
     const diffPurity = (a.purityPercentage - b.purityPercentage).toFixed(1);
     const diffPrice = (a.pricePerKg - b.pricePerKg).toFixed(2);
 
-    const reply = '**Deterministic Comparison: ' + a.supplierCompany.name + ' vs. ' + b.supplierCompany.name + '**\n\n' +
+    const comparisonFacts =
+      `Supplier A: ${a.supplierCompany.name} (${a.supplierCompany.city}) — ${a.purityPercentage}% purity, ₹${a.pricePerKg.toFixed(2)}/kg, ${(a.quantityAvailableKg/1000).toFixed(1)}T, trust ${a.supplierCompany.trustScore.toFixed(1)}/100, ${a.supplierCompany.isVerified ? 'Verified' : 'Unverified'}, ${a.stateOfMatter}, ${a.captureMethod}.\n` +
+      `Supplier B: ${b.supplierCompany.name} (${b.supplierCompany.city}) — ${b.purityPercentage}% purity, ₹${b.pricePerKg.toFixed(2)}/kg, ${(b.quantityAvailableKg/1000).toFixed(1)}T, trust ${b.supplierCompany.trustScore.toFixed(1)}/100, ${b.supplierCompany.isVerified ? 'Verified' : 'Unverified'}, ${b.stateOfMatter}, ${b.captureMethod}.`;
+
+    const hfPrompt =
+      `<s>[INST] You are ReCarbo AI for a CO2 marketplace in Gujarat, India.\n` +
+      `Compare these two suppliers using only the data below. Give a structured comparison and a clear recommendation.\n\n` +
+      `${comparisonFacts}\n\n` +
+      `Do not invent any numbers. Be concise. [/INST]`;
+
+    const hfReply = await callHuggingFace(hfPrompt);
+
+    const reply = hfReply ||
+      '**Deterministic Comparison: ' + a.supplierCompany.name + ' vs. ' + b.supplierCompany.name + '**\n\n' +
       '1. **Purity & Physical State:**\n' +
       '   • **' + a.supplierCompany.name + ':** ' + a.purityPercentage + '% (' + a.stateOfMatter + ', ' + a.captureMethod + ')\n' +
       '   • **' + b.supplierCompany.name + ':** ' + b.purityPercentage + '% (' + b.stateOfMatter + ', ' + b.captureMethod + ')\n' +
-      '   • *Verdict:* ' + (parseFloat(diffPurity) > 0 ? a.supplierCompany.name + ' has +' + diffPurity + '% higher purity, ideal for high-spec polymer synthesis or beverage carbonation.' : b.supplierCompany.name + ' meets requirements for standard mineral carbonation.') + '\n\n' +
-      '2. **Pricing & Available Capacity:**\n' +
-      '   • **' + a.supplierCompany.name + ':** ₹' + a.pricePerKg.toFixed(2) + '/kg (Stock: ' + (a.quantityAvailableKg / 1000).toFixed(1) + ' T)\n' +
-      '   • **' + b.supplierCompany.name + ':** ₹' + b.pricePerKg.toFixed(2) + '/kg (Stock: ' + (b.quantityAvailableKg / 1000).toFixed(1) + ' T)\n' +
-      '   • *Verdict:* ' + (parseFloat(diffPrice) < 0 ? a.supplierCompany.name + ' is cheaper by ₹' + Math.abs(parseFloat(diffPrice)) + '/kg.' : b.supplierCompany.name + ' provides lower base unit pricing at ₹' + b.pricePerKg.toFixed(2) + '/kg with higher volume capacity.') + '\n\n' +
-      '3. **Organization Trust & Governance:**\n' +
-      '   • **' + a.supplierCompany.name + ':** Trust Score ' + a.supplierCompany.trustScore.toFixed(1) + '/100 (' + (a.supplierCompany.isVerified ? 'Verified Partner' : 'Pending Review') + ')\n' +
-      '   • **' + b.supplierCompany.name + ':** Trust Score ' + b.supplierCompany.trustScore.toFixed(1) + '/100 (' + (b.supplierCompany.isVerified ? 'Verified Partner' : 'Pending Review') + ')\n\n' +
-      '*Recommendation:* Choose **' + (a.purityPercentage > b.purityPercentage ? a.supplierCompany.name : b.supplierCompany.name) + '** for polymer/chemical applications where purity is non-negotiable, or **' + (a.pricePerKg < b.pricePerKg ? a.supplierCompany.name : b.supplierCompany.name) + '** for heavy mineral curing where unit cost dominates.';
+      '   • *Verdict:* ' + (parseFloat(diffPurity) > 0 ? a.supplierCompany.name + ' has +' + diffPurity + '% higher purity.' : b.supplierCompany.name + ' meets requirements for standard mineral carbonation.') + '\n\n' +
+      '2. **Pricing & Capacity:**\n' +
+      '   • **' + a.supplierCompany.name + ':** ₹' + a.pricePerKg.toFixed(2) + '/kg (' + (a.quantityAvailableKg/1000).toFixed(1) + 'T)\n' +
+      '   • **' + b.supplierCompany.name + ':** ₹' + b.pricePerKg.toFixed(2) + '/kg (' + (b.quantityAvailableKg/1000).toFixed(1) + 'T)';
 
     return {
       reply,
@@ -415,13 +487,30 @@ export class AIAssistantService {
 
     const tonnes = ((totalVolume._sum.quantityAvailableKg || 0) / 1000).toFixed(1);
 
+    const platformFacts =
+      `ReCarbo is a B2B circular carbon marketplace in Gujarat, India. ` +
+      `Active supply: ${tonnes} Tonnes across ${listingsCount} verified listings. ` +
+      `Platform fee: ${fee.feePercentage}%. Logistics rate: ₹${fee.transportRatePerKmKg}/km/kg. ` +
+      `Matching uses 5-factor scoring: 30% Quantity + 25% Purity + 20% Distance + 15% Price + 10% Trust.`;
+
+    const hfPrompt =
+      `<s>[INST] You are ReCarbo AI. Answer the user's question using only the platform facts below.\n` +
+      `Platform facts: ${platformFacts}\n` +
+      `User question: ${lower}\n` +
+      `Be concise and helpful. Do not invent data. [/INST]`;
+
+    const hfReply = await callHuggingFace(hfPrompt);
+
+    const fallback =
+      'ReCarbo is an AI-powered B2B circular carbon marketplace. Currently:\n\n' +
+      '• **Active Supply:** ' + tonnes + ' Tonnes across ' + listingsCount + ' verified listing(s).\n' +
+      '• **Platform Fee:** ' + fee.feePercentage + '% (governed by Admin Settings).\n' +
+      '• **Logistics Rate:** ₹' + fee.transportRatePerKmKg + '/km/kg for cryogenic tanker freight.\n' +
+      '• **Matching Engine:** 5-factor scoring (30% Qty + 25% Purity + 20% Dist + 15% Price + 10% Avail).\n\n' +
+      'Ask me to find CO2 matching your specs (e.g. "I need 50T CO2 >99% in Sanand") or compare suppliers!';
+
     return {
-      reply: 'ReCarbo is an AI-powered B2B circular carbon marketplace. Currently governed across the Gujarat industrial corridor:\n\n' +
-        '• **Active Supply:** ' + tonnes + ' Tonnes across ' + listingsCount + ' verified industrial listing(s).\n' +
-        '• **Dynamic Platform Fee:** ' + fee.feePercentage + '% (governed by Admin Settings).\n' +
-        '• **Baseline Logistics Rate:** ₹' + fee.transportRatePerKmKg + '/km/kg for cryogenic tanker freight.\n' +
-        '• **Matching Engine:** Deterministic 5-factor scoring (30% Qty + 25% Purity + 20% Dist + 15% Price + 10% Avail).\n\n' +
-        'You can ask me to find CO2 matching your specifications (e.g. "I need 50T CO2 >99% in Sanand") or compare suppliers!',
+      reply: hfReply || fallback,
       actionType: 'GENERAL_QA',
     };
   }

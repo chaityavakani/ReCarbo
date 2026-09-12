@@ -308,7 +308,7 @@ export const AssistantPage: React.FC = () => {
               </div>
               <div className="p-4 rounded-2xl bg-charcoal-950 border border-emerald-950 text-xs text-slate-400 flex items-center space-x-2">
                 <span className="w-2 h-2 rounded-full bg-brand-400 animate-pulse" />
-                <span>Evaluating Gujarat carbon listings & computing deterministic match fit...</span>
+                <span>Querying live marketplace data & generating AI response...</span>
               </div>
             </div>
           )}
